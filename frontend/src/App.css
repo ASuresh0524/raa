@@ -16,7 +16,13 @@
   align-items: flex-end;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding-bottom: 1rem;
+  gap: 1.5rem;
 }
+.timing-panel p {
+  margin: 0;
+  color: #d7dcf8;
+}
+
 
 .eyebrow {
   text-transform: uppercase;
@@ -42,6 +48,71 @@
 .viewport-grid {
   display: grid;
   gap: 1rem;
+}
+
+.voice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.voice-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.voice-card textarea {
+  width: 100%;
+  min-height: 80px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 12, 22, 0.8);
+  color: #f2f4ff;
+  padding: 0.75rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.voice-response {
+  background: rgba(24, 30, 48, 0.9);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+}
+
+.voice-response ul {
+  padding-left: 1rem;
+}
+
+.voice-error {
+  color: #ff9f9f;
+  font-size: 0.85rem;
+}
+
+.mic-button {
+  flex: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(120deg, #3948ff, #9b4dff);
+  color: white;
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+}
+
+.mic-button.active {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(155, 77, 255, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(155, 77, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(155, 77, 255, 0);
+  }
 }
 
 .study-card {

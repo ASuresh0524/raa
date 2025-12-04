@@ -2,8 +2,9 @@
 
 Screen-native, multi-agent co-pilot demo for longitudinal and context-aware radiology interpretation. The repo contains:
 
-- `backend/`: FastAPI service that simulates the Screen Intelligence, Change-Detection, Guideline, and Drafting agents with rule-based logic and stubbed studies.
-- `frontend/`: Vite + React UI that mimics a PACS layout with agent overlays for quick pitch demos.
+- `backend/`: FastAPI service that simulates the Screen Intelligence, Change-Detection, Guideline, Drafting, and Voice agents with rule-based logic and stubbed studies.
+- `frontend/`: Vite + React UI that mimics a PACS layout with agent overlays plus a simple voice co-pilot.
+- `docs/`: Roadmap notes covering D2P workarounds, voice-first concepts, and model-routing ideas.
 
 ## Prerequisites
 
@@ -23,7 +24,8 @@ uvicorn app.main:app --reload --port 8000
 The API exposes:
 
 - `GET /api/ping` – health check.
-- `GET /api/case` – returns the aggregated agent packet consumed by the UI.
+- `GET /api/case` – returns the aggregated agent packet consumed by the UI, including latency metrics.
+- `POST /api/voice` – toy intent parser powering the voice mock.
 
 ## Frontend (React + Vite)
 
@@ -43,5 +45,6 @@ By default the UI proxies `/api/*` to `http://localhost:8000`. To point elsewher
    - **Longitudinal** card auto-narrates growth using DAG-inspired deltas.
    - **Guideline** card surfaces inline Fleischner recommendations with links.
    - **Drafting** card suggests comparison/impression phrasing.
+   - **Voice** card captures browser speech or text commands and shows the resulting actions (open, summarize, highlight).
 
 Everything runs locally with stub data, so you can screen record or live demo without PACS access. Extend the backend stubs or add more agents as needed for your storyline.

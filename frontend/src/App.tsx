@@ -1,7 +1,36 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
-import { fetchAgentPacket } from './api'
-import type { AgentPacket, LongitudinalSummary, Study } from './types'
+import { fetchAgentPacket, submitVoiceCommand } from './api'
+import type {
+  AgentPacket,
+  LongitudinalSummary,
+  Study,
+  VoiceResponse,
+} from './types'
+
+type SpeechRecognitionEventLite = {
+  results: ArrayLike<ArrayLike<{ transcript: string }>>
+}
+
+interface SpeechRecognitionLite {
+  lang: string
+  interimResults: boolean
+  maxAlternatives: number
+  onresult: (event: SpeechRecognitionEventLite) => void
+  onerror: (event: Event) => void
+  onend: () => void
+  start: () => void
+  stop: () => void
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLite
+
+declare global {
+  interface Window {
+    webkitSpeechRecognition?: SpeechRecognitionConstructor
+    SpeechRecognition?: SpeechRecognitionConstructor
+  }
+}
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -50,6 +79,12 @@ function App() {
   const [state, setState] = useState<LoadState>('idle')
   const [error, setError] = useState<string>()
   const [packet, setPacket] = useState<AgentPacket>()
+  const [voiceTranscript, setVoiceTranscript] = useState('')
+  const [voiceResponse, setVoiceResponse] = useState<VoiceResponse>()
+  const [voiceError, setVoiceError] = useState<string>()
+  const [voiceLoading, setVoiceLoading] = useState(false)
+  const [listening, setListening] = useState(false)
+  const recognitionRef = useRef<SpeechRecognitionLite | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -66,6 +101,55 @@ function App() {
     }
     load()
   }, [])
+
+  const startListening = () => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      setVoiceError('Browser does not support SpeechRecognition API')
+      return
+    }
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'en-US'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+    recognition.onresult = (event: SpeechRecognitionEventLite) => {
+      const transcript = event.results[0][0].transcript
+      setVoiceTranscript(transcript)
+    }
+    recognition.onerror = () => {
+      setVoiceError('Unable to capture audio. Check permissions and retry.')
+    }
+    recognition.onend = () => {
+      setListening(false)
+    }
+    recognition.start()
+    recognitionRef.current = recognition
+    setListening(true)
+    setVoiceError(undefined)
+  }
+
+  const stopListening = () => {
+    recognitionRef.current?.stop()
+    setListening(false)
+  }
+
+  const handleVoiceSubmit = async () => {
+    if (!voiceTranscript.trim()) {
+      setVoiceError('Speak or type a command first.')
+      return
+    }
+    try {
+      setVoiceLoading(true)
+      setVoiceError(undefined)
+      const response = await submitVoiceCommand({ transcript: voiceTranscript })
+      setVoiceResponse(response)
+    } catch (err) {
+      setVoiceError(err instanceof Error ? err.message : 'Voice command failed')
+    } finally {
+      setVoiceLoading(false)
+    }
+  }
 
   if (state === 'loading' || state === 'idle') {
     return (
@@ -99,6 +183,13 @@ function App() {
         <div>
           <p className="eyebrow">Agents active</p>
           <h2>Screen · Change · Guidelines · Drafting</h2>
+        </div>
+        <div className="timing-panel">
+          <p className="eyebrow">Latency</p>
+          <p>
+            Data {packet.timing.data_collection_ms} ms · Agents{' '}
+            {packet.timing.agent_processing_ms} ms
+          </p>
         </div>
       </header>
 
@@ -151,6 +242,46 @@ function App() {
                   <p>{hint.suggestion}</p>
                 </article>
               ))}
+            </div>
+          </div>
+
+          <div>
+            <h3>Voice Agent</h3>
+            <div className="voice-card">
+              <div className="voice-controls">
+                <button
+                  type="button"
+                  className={listening ? 'mic-button active' : 'mic-button'}
+                  onClick={listening ? stopListening : startListening}
+                >
+                  {listening ? 'Listening…' : 'Tap to speak'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleVoiceSubmit}
+                  disabled={voiceLoading}
+                >
+                  {voiceLoading ? 'Sending…' : 'Send'}
+                </button>
+              </div>
+              <textarea
+                placeholder="Example: “Summarize the changes on this CT and cite guidelines.”"
+                value={voiceTranscript}
+                onChange={(event) => setVoiceTranscript(event.target.value)}
+              />
+              {voiceError && <p className="voice-error">{voiceError}</p>}
+              {voiceResponse && (
+                <div className="voice-response">
+                  <p>{voiceResponse.narration}</p>
+                  <ul>
+                    {voiceResponse.actions.map((action) => (
+                      <li key={`${action.action}-${action.target}`}>
+                        <strong>{action.action}</strong> → {action.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         </aside>

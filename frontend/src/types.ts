@@ -40,5 +40,27 @@ export type AgentPacket = {
   longitudinal: LongitudinalSummary[]
   guideline_recs: GuidelineRecommendation[]
   drafting_hints: DraftingHint[]
+  timing: TimingInfo
+}
+
+export type TimingInfo = {
+  data_collection_ms: number
+  agent_processing_ms: number
+  generated_at: string
+}
+
+export type VoiceCommand = {
+  transcript: string
+}
+
+export type VoiceAction = {
+  action: 'open_study' | 'summarize' | 'highlight'
+  target: string
+  message: string
+}
+
+export type VoiceResponse = {
+  narration: string
+  actions: VoiceAction[]
 }
 
