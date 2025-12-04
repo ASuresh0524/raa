@@ -1,8 +1,8 @@
 """
 Pydantic models used by the Radiology Action Assistant demo backend.
 """
-from datetime import date
-from typing import List, Literal, Optional
+from datetime import date, datetime
+from typing import List, Literal
 
 from pydantic import BaseModel, Field
 
@@ -53,6 +53,14 @@ class LongitudinalSummary(BaseModel):
     deltas: List[str]
 
 
+class TimingInfo(BaseModel):
+    """Basic observability for demo latency."""
+
+    data_collection_ms: int
+    agent_processing_ms: int
+    generated_at: datetime
+
+
 class AgentPacket(BaseModel):
     """Container returned to the UI."""
 
@@ -61,4 +69,24 @@ class AgentPacket(BaseModel):
     longitudinal: List[LongitudinalSummary]
     guideline_recs: List[GuidelineRecommendation]
     drafting_hints: List[DraftingHint]
+    timing: TimingInfo
+
+
+class VoiceCommand(BaseModel):
+    """Transcript captured from the voice front-end."""
+
+    transcript: str
+
+
+class VoiceAction(BaseModel):
+    action: Literal["open_study", "summarize", "highlight"]
+    target: str
+    message: str
+
+
+class VoiceResponse(BaseModel):
+    """Structured response to a voice command."""
+
+    narration: str
+    actions: List[VoiceAction]
 
