@@ -90,3 +90,38 @@ class VoiceResponse(BaseModel):
     narration: str
     actions: List[VoiceAction]
 
+
+class ScreenCapture(BaseModel):
+    """Screen capture or uploaded image for processing."""
+
+    image_data: str = Field(..., description="Base64 encoded image")
+    patient_id: str | None = None
+    study_id: str | None = None
+
+
+class PatientMemory(BaseModel):
+    """Patient context stored locally for D2P workflow."""
+
+    patient_id: str
+    studies: List[Study]
+    notes: str = ""
+    last_updated: datetime
+
+
+class ReportSection(BaseModel):
+    """Structured report section that can be auto-populated."""
+
+    section: str
+    content: str
+    source: Literal["agent", "user", "auto"]
+    editable: bool = True
+
+
+class Report(BaseModel):
+    """Complete radiology report with sections."""
+
+    patient_id: str
+    study_id: str
+    sections: List[ReportSection]
+    generated_at: datetime
+

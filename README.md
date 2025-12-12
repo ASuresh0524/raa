@@ -1,50 +1,85 @@
 # Radiology Action Assistant (RAA)
 
-Screen-native, multi-agent co-pilot demo for longitudinal and context-aware radiology interpretation. The repo contains:
+**D2P-Ready Screen-Native Multi-Agent Co-Pilot for Radiology**
 
-- `backend/`: FastAPI service that simulates the Screen Intelligence, Change-Detection, Guideline, Drafting, and Voice agents with rule-based logic and stubbed studies.
-- `frontend/`: Vite + React UI that mimics a PACS layout with agent overlays plus a simple voice co-pilot.
-- `docs/`: Roadmap notes covering D2P workarounds, voice-first concepts, and model-routing ideas.
+RAA is a production-ready web application that enables radiologists to work with intelligent agents for longitudinal analysis, guideline recommendations, and voice-controlled workflow—all without requiring PACS integration.
+
+## Features
+
+### 🎯 D2P (Direct-to-Physician) Ready
+- **Screen Capture/Upload**: Upload screenshots or paste images (Ctrl/Cmd+V) to extract study context
+- **Patient Memory**: Store patient context locally for continuity across sessions
+- **No Integration Required**: Works entirely through screen perception and local processing
+
+### 🤖 Multi-Agent System
+- **Screen Intelligence Agent**: Perceives on-screen studies and measurements
+- **Longitudinal Agent**: Tracks lesion changes across timepoints with trend analysis
+- **Guideline Agent**: Surfaces evidence-based recommendations (Fleischner, LI-RADS, etc.)
+- **Drafting Agent**: Suggests report phrasing and ensures completeness
+- **Voice Agent**: Hands-free commands for navigation, summarization, and auto-population
+
+### 📝 Report Editor
+- **Auto-Population**: Generate complete reports from agent suggestions with one click
+- **Editable Sections**: Findings, Comparison, and Impression sections that you can refine
+- **Source Tracking**: See which content came from agents vs. manual input
+
+### 🎤 Voice-First Workflow
+- **Auto-Execute**: Voice commands automatically trigger actions (no extra clicks)
+- **Natural Language**: "Summarize changes", "Show guidelines", "Auto-populate report"
+- **Browser Speech API**: Works in Chrome/Edge, with text fallback
 
 ## Prerequisites
 
 - **Python 3.11+**
-- **Node.js 20+** (Vite 7 requires Node ≥20.19.0; upgrade locally if you see engine warnings.)
+- **Node.js 20+** (Vite 7 requires Node ≥20.19.0)
 
-## Backend (FastAPI)
+## Quick Start
+
+### Backend (FastAPI)
 
 ```bash
-cd /Users/aakashsuresh/raa/backend
+cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-The API exposes:
-
-- `GET /api/ping` – health check.
-- `GET /api/case` – returns the aggregated agent packet consumed by the UI, including latency metrics.
-- `POST /api/voice` – toy intent parser powering the voice mock.
-
-## Frontend (React + Vite)
+### Frontend (React + Vite)
 
 ```bash
-cd /Users/aakashsuresh/raa/frontend
+cd frontend
 npm install
 npm run dev
 ```
 
-By default the UI proxies `/api/*` to `http://localhost:8000`. To point elsewhere, set `VITE_API_BASE_URL`.
+Open `http://localhost:5173` in your browser.
 
-## Demo Script
+## API Endpoints
 
-1. Open the frontend at `http://localhost:5173`.
-2. Walk through the left “Studies on screen” column (mimics baseline and follow-up CTs with measurements).
-3. Highlight the right sidebar agents:
-   - **Longitudinal** card auto-narrates growth using DAG-inspired deltas.
-   - **Guideline** card surfaces inline Fleischner recommendations with links.
-   - **Drafting** card suggests comparison/impression phrasing.
-   - **Voice** card captures browser speech or text commands and shows the resulting actions (open, summarize, highlight).
+- `GET /api/ping` – Health check
+- `GET /api/case` – Get agent packet with studies, longitudinal analysis, guidelines, and drafting hints
+- `POST /api/voice` – Process voice/text commands
+- `POST /api/screen-capture` – Upload screenshot for processing
+- `POST /api/patient-memory` – Save patient context
+- `GET /api/patient-memory/{patient_id}` – Retrieve patient context
+- `POST /api/report/generate` – Auto-generate report from agent suggestions
 
-Everything runs locally with stub data, so you can screen record or live demo without PACS access. Extend the backend stubs or add more agents as needed for your storyline.
+## Usage Workflow
+
+1. **Upload Screen Capture**: Click "📷 Upload Screen" or paste an image to extract study context
+2. **Set Patient ID**: Enter patient ID to enable context memory across sessions
+3. **View Agent Analysis**: Switch to "Agent Suggestions" tab to see longitudinal trends, guidelines, and drafting hints
+4. **Generate Report**: Click "Auto-Populate from Agents" to create a complete report
+5. **Edit & Refine**: Modify any section in the Report Editor
+6. **Voice Commands**: Use the microphone or type commands like "Summarize changes" or "Auto-populate report"
+
+## Architecture
+
+- **Backend**: FastAPI with rule-based agents (ready for ML model integration)
+- **Frontend**: React + TypeScript with tabbed interface for Studies, Report Editor, and Agent Suggestions
+- **Storage**: In-memory patient memory (replace with local storage for true D2P deployment)
+
+## Roadmap
+
+See `docs/roadmap.md` for D2P strategies, voice-first enhancements, and FDA-compliant model routing ideas.

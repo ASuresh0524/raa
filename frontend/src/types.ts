@@ -64,3 +64,24 @@ export type VoiceResponse = {
   actions: VoiceAction[]
 }
 
+export type ReportSection = {
+  section: string
+  content: string
+  source: 'agent' | 'user' | 'auto'
+  editable: boolean
+}
+
+export type Report = {
+  patient_id: string
+  study_id: string
+  sections: ReportSection[]
+  generated_at: string
+}
+
+export type PatientMemory = {
+  patient_id: string
+  studies: Study[]
+  notes: string
+  last_updated: string
+}
+

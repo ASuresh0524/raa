@@ -241,3 +241,190 @@
   margin: auto;
   text-align: center;
 }
+
+.d2p-controls {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(12, 18, 33, 0.6);
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+
+.patient-id-input {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.patient-id-input label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.patient-id-input input {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 12, 22, 0.8);
+  color: #f2f4ff;
+  font-size: 0.9rem;
+  min-width: 200px;
+}
+
+.patient-id-input button,
+.screen-capture-controls button {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(57, 72, 255, 0.3);
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.patient-id-input button:hover,
+.screen-capture-controls button:hover {
+  background: rgba(57, 72, 255, 0.5);
+}
+
+.patient-id-input button:disabled,
+.screen-capture-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.screen-capture-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.screen-capture-controls .hint {
+  font-size: 0.85rem;
+  color: #7b85a1;
+}
+
+.tab-navigation {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 1rem;
+}
+
+.tab-navigation button {
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #7b85a1;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-navigation button:hover {
+  color: #a2abda;
+}
+
+.tab-navigation button.active {
+  color: #f2f4ff;
+  border-bottom-color: #3948ff;
+}
+
+.report-editor {
+  background: rgba(12, 18, 33, 0.95);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+}
+
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.report-header h2 {
+  margin: 0;
+}
+
+.generate-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(120deg, #3948ff, #9b4dff);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.generate-btn:hover {
+  transform: translateY(-1px);
+}
+
+.report-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.report-section {
+  background: rgba(23, 30, 55, 0.9);
+  border-radius: 12px;
+  padding: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.report-section header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.report-section h4 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.source-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: rgba(57, 72, 255, 0.2);
+  color: #8ab4ff;
+}
+
+.report-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 12, 22, 0.8);
+  color: #f2f4ff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.report-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.empty-report {
+  text-align: center;
+  padding: 3rem;
+  color: #7b85a1;
+}
