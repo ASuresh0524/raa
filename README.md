@@ -1,37 +1,54 @@
-# Radiology Action Assistant (RAA)
+# Credentialing Passport for Clinicians
 
-**D2P-Ready Screen-Native Multi-Agent Co-Pilot for Radiology**
+**Universal, Clinician-Owned Credentialing and Enrollment Platform**
 
-RAA is a production-ready web application that enables radiologists to work with intelligent agents for longitudinal analysis, guideline recommendations, and voice-controlled workflow—all without requiring PACS integration.
+Credentialing Passport is a production-ready web application that enables clinicians to create a single, comprehensive credentialing profile once, then reuse it across all future onboarding events. The platform uses AI agents to automate credentialing workflows, primary source verification, payer enrollment, and exception handling—transforming credentialing from a repetitive, manual process into an automated, evidence-based system.
 
 ## Features
 
-### 🎯 D2P (Direct-to-Physician) Ready
-- **Screen Capture/Upload**: Upload screenshots or paste images (Ctrl/Cmd+V) to extract study context
-- **Patient Memory**: Store patient context locally for continuity across sessions
-- **No Integration Required**: Works entirely through screen perception and local processing
+### 🎯 Universal Passport
+- **Single Source of Truth**: Complete credentialing profile stored once, reused everywhere
+- **Secure Document Vault**: Upload and store all supporting documents with provenance tracking
+- **Continuous Readiness**: Automatic monitoring for expirations, licensure changes, and recredentialing windows
 
 ### 🤖 Multi-Agent System
-- **Screen Intelligence Agent**: Perceives on-screen studies and measurements
-- **Longitudinal Agent**: Tracks lesion changes across timepoints with trend analysis
-- **Guideline Agent**: Surfaces evidence-based recommendations (Fleischner, LI-RADS, etc.)
-- **Drafting Agent**: Suggests report phrasing and ensures completeness
-- **Voice Agent**: Hands-free commands for navigation, summarization, and auto-population
+- **Workflow Orchestrator Agent**: Manages end-to-end credentialing workflows with parallel execution
+- **Requirements & Checklist Agent**: Builds destination-specific requirement packs
+- **Provider Intake Concierge Agent**: Collects missing information via guided chat
+- **Document Ingestion & Data Extraction Agent**: Converts CVs and PDFs into structured fields
+- **Data Quality & Consistency Agent**: Validates completeness and flags inconsistencies
+- **Primary Source Verification Agent**: Automates license, board, and sanctions verification
+- **Payer Enrollment Submission Agent**: Generates and submits payer-specific applications
+- **Billing & Scheduling Guardrail Agent**: Translates effective dates into operational rules
+- **Audit Trail Agent**: Creates evidence bundles for accreditation and compliance
 
-### 📝 Report Editor
-- **Auto-Population**: Generate complete reports from agent suggestions with one click
-- **Editable Sections**: Findings, Comparison, and Impression sections that you can refine
-- **Source Tracking**: See which content came from agents vs. manual input
+### 📋 Credentialing Data Model
+- **Identity & Demographics**: Names, aliases, DOB, SSN, address history (5-10 years)
+- **Education & Training**: Medical school, residency, fellowship (lifetime)
+- **Work History**: Employment, hospital appointments, privileges (5-10 years)
+- **Licenses**: State licenses, DEA, CDS registrations (lifetime)
+- **Board Certification**: Status and maintenance of certification (lifetime and current)
+- **Malpractice**: Carrier, policy, loss runs, claims history (5-10 years)
+- **Disclosures**: Sanctions, discipline, criminal, DEA actions (lifetime)
+- **References**: Peer references (current)
+- **Enrollment**: Practice locations, EIN, W9, EFT, specialty and taxonomy (current)
 
-### 🎤 Voice-First Workflow
-- **Auto-Execute**: Voice commands automatically trigger actions (no extra clicks)
-- **Natural Language**: "Summarize changes", "Show guidelines", "Auto-populate report"
-- **Browser Speech API**: Works in Chrome/Edge, with text fallback
+### 🔗 Data Source Integrations
+- **NPPES/NPI**: Provider identity, taxonomy, enrollment status
+- **CMS Medicare**: Enrollment data, ordering/referring eligibility, opt-out affidavits
+- **OIG LEIE**: Federal healthcare program exclusions
+- **NPDB**: Malpractice payments and adverse actions
+- **State Licensing Boards**: License verification (FL, WA, CA, and more)
+- **Board Certification**: Certification status and MOC
+- **CAQH ProView**: Payer enrollment data
+- **Open Payments**: Industry financial relationships
 
 ## Prerequisites
 
 - **Python 3.11+**
 - **Node.js 20+** (Vite 7 requires Node ≥20.19.0)
+- **PostgreSQL** (for production passport storage)
+- **Redis** (for caching and session management)
 
 ## Quick Start
 
@@ -39,9 +56,11 @@ RAA is a production-ready web application that enables radiologists to work with
 
 ```bash
 cd backend
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv        # Create virtualenv (Python 3.11+)
+source .venv/bin/activate    # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+
+# Development server (hot reload on code changes)
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -50,36 +69,60 @@ uvicorn app.main:app --reload --port 8000
 ```bash
 cd frontend
 npm install
+
+# Development server (uses Vite proxy to talk to backend at http://localhost:8000)
 npm run dev
 ```
 
 Open `http://localhost:5173` in your browser.
 
+During development:
+- Frontend calls `/api/...` which Vite proxies to `http://localhost:8000`
+- Backend CORS is configured to allow `http://localhost:5173`
+
 ## API Endpoints
 
 - `GET /api/ping` – Health check
-- `GET /api/case` – Get agent packet with studies, longitudinal analysis, guidelines, and drafting hints
-- `POST /api/voice` – Process voice/text commands
-- `POST /api/screen-capture` – Upload screenshot for processing
-- `POST /api/patient-memory` – Save patient context
-- `GET /api/patient-memory/{patient_id}` – Retrieve patient context
-- `POST /api/report/generate` – Auto-generate report from agent suggestions
+- `GET /api/passport/{clinician_id}` – Get clinician passport
+- `POST /api/passport` – Create or update passport
+- `POST /api/passport/{clinician_id}/authorize` – Authorize organization access
+- `GET /api/workflow/{workflow_id}` – Get workflow status and timeline
+- `POST /api/workflow` – Start new credentialing workflow
+- `GET /api/verification/{verification_id}` – Get verification results
+- `POST /api/documents/upload` – Upload supporting documents
+- `GET /api/requirements/{destination_id}` – Get requirements checklist
+- `POST /api/enrollment/submit` – Submit payer enrollment application
 
 ## Usage Workflow
 
-1. **Upload Screen Capture**: Click "📷 Upload Screen" or paste an image to extract study context
-2. **Set Patient ID**: Enter patient ID to enable context memory across sessions
-3. **View Agent Analysis**: Switch to "Agent Suggestions" tab to see longitudinal trends, guidelines, and drafting hints
-4. **Generate Report**: Click "Auto-Populate from Agents" to create a complete report
-5. **Edit & Refine**: Modify any section in the Report Editor
-6. **Voice Commands**: Use the microphone or type commands like "Summarize changes" or "Auto-populate report"
+1. **Create Passport**: Clinician completes guided intake, uploads documents, signs attestations
+2. **Authorize Access**: When an organization needs credentialing, clinician authorizes access
+3. **Automated Processing**: Agents run in parallel to verify, validate, and prepare submissions
+4. **Exception Review**: Credentialing staff review only true exceptions and final approvals
+5. **Continuous Monitoring**: System monitors for expirations and maintains readiness
 
 ## Architecture
 
-- **Backend**: FastAPI with rule-based agents (ready for ML model integration)
-- **Frontend**: React + TypeScript with tabbed interface for Studies, Report Editor, and Agent Suggestions
-- **Storage**: In-memory patient memory (replace with local storage for true D2P deployment)
+See `docs/architecture.md` for detailed system architecture diagrams including:
+- System architecture overview
+- Agent interaction flows
+- Data model architecture
+- Integration layer details
+
+## Data Sources
+
+See `docs/data-sources.md` for complete list of credentialing data sources and APIs including:
+- NPPES/NPI data sources
+- CMS Medicare enrollment data
+- State licensing board APIs
+- OIG exclusions databases
+- NPDB public data
+- Board certification sources
 
 ## Roadmap
 
-See `docs/roadmap.md` for D2P strategies, voice-first enhancements, and FDA-compliant model routing ideas.
+See `docs/roadmap.md` for planned enhancements including:
+- Additional state licensing board integrations
+- Enhanced AI agent capabilities
+- Real-time verification workflows
+- Advanced exception handling

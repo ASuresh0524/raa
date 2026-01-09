@@ -1,47 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import {
-  fetchAgentPacket,
-  submitVoiceCommand,
-  uploadScreenCapture,
-  generateReport,
-  savePatientMemory,
+  getPassport,
+  authorizeAccess,
+  getWorkflowStatus,
+  uploadDocument,
+  getRequirements,
 } from './api'
 import type {
-  AgentPacket,
-  LongitudinalSummary,
-  Study,
-  VoiceResponse,
-  Report,
-  ReportSection,
+  PassportResponse,
+  Workflow,
+  WorkflowStatusResponse,
+  RequirementsChecklist,
+  AuthorizationRequest,
+  QualityIssue,
+  VerificationResult,
 } from './types'
 
-type SpeechRecognitionEventLite = {
-  results: ArrayLike<ArrayLike<{ transcript: string }>>
-}
-
-interface SpeechRecognitionLite {
-  lang: string
-  interimResults: boolean
-  maxAlternatives: number
-  onresult: (event: SpeechRecognitionEventLite) => void
-  onerror: (event: Event) => void
-  onend: () => void
-  start: () => void
-  stop: () => void
-}
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLite
-
-declare global {
-  interface Window {
-    webkitSpeechRecognition?: SpeechRecognitionConstructor
-    SpeechRecognition?: SpeechRecognitionConstructor
-  }
-}
-
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
-type TabView = 'studies' | 'report' | 'agents'
+type TabView = 'passport' | 'workflow' | 'quality' | 'requirements'
 
 const formatDate = (value: string) =>
   new Date(value).toLocaleDateString('en-US', {
@@ -50,84 +27,98 @@ const formatDate = (value: string) =>
     day: 'numeric',
   })
 
-const StudyCard = ({ study }: { study: Study }) => (
-  <article className="study-card">
+const QualityIssueCard = ({ issue }: { issue: QualityIssue }) => (
+  <article className={`quality-card severity-${issue.severity}`}>
     <header>
-      <h3>{study.body_part}</h3>
-      <span>
-        {study.modality} · {formatDate(study.study_date)}
-      </span>
+      <h4>{issue.field_name}</h4>
+      <span className={`severity-badge ${issue.severity}`}>{issue.severity.toUpperCase()}</span>
     </header>
-    <p>{study.summary}</p>
-    <ul>
-      {study.measurements.map((measurement) => (
-        <li key={measurement.id}>
-          <strong>{measurement.lesion}</strong> — {measurement.value_mm.toFixed(1)} mm
-        </li>
-      ))}
-    </ul>
+    <p>{issue.description}</p>
+    {issue.suggested_fix && (
+      <div className="suggested-fix">
+        <strong>Suggested Fix:</strong> {issue.suggested_fix}
+      </div>
+    )}
+    <span className="issue-type">{issue.issue_type}</span>
   </article>
 )
 
-const LongitudinalCard = ({ item }: { item: LongitudinalSummary }) => (
-  <article className={`agent-card trend-${item.trend}`}>
+const VerificationResultCard = ({ result }: { result: VerificationResult }) => (
+  <article className={`verification-card status-${result.status}`}>
     <header>
-      <h4>{item.lesion}</h4>
-      <span>{item.trend.toUpperCase()}</span>
+      <h4>{result.field_name}</h4>
+      <span className={`status-badge ${result.status}`}>{result.status.toUpperCase()}</span>
     </header>
-    <p>{item.narrative}</p>
-    <ul>
-      {item.deltas.map((delta) => (
-        <li key={delta}>{delta}</li>
-      ))}
-    </ul>
+    <p>
+      <strong>Source:</strong> {result.source}
+    </p>
+    {result.verified_at && (
+      <p>
+        <strong>Verified:</strong> {formatDate(result.verified_at)}
+      </p>
+    )}
+    {result.exception_reason && (
+      <div className="exception-reason">
+        <strong>Exception:</strong> {result.exception_reason}
+      </div>
+    )}
   </article>
 )
 
-const ReportSectionEditor = ({
-  section,
-  onUpdate,
-}: {
-  section: ReportSection
-  onUpdate: (content: string) => void
-}) => (
-  <div className="report-section">
+const RequirementCard = ({ requirement }: { requirement: any }) => (
+  <article className={`requirement-card status-${requirement.status}`}>
     <header>
-      <h4>{section.section}</h4>
-      <span className="source-badge">{section.source}</span>
+      <h4>{requirement.category}</h4>
+      <span className={`status-badge ${requirement.status}`}>{requirement.status.toUpperCase()}</span>
     </header>
-    <textarea
-      value={section.content}
-      onChange={(e) => onUpdate(e.target.value)}
-      disabled={!section.editable}
-      className="report-textarea"
-      placeholder={`Enter ${section.section.toLowerCase()}...`}
-    />
-  </div>
+    <p>{requirement.description}</p>
+    {requirement.required && <span className="required-badge">Required</span>}
+  </article>
+)
+
+const WorkflowStepCard = ({ step }: { step: any }) => (
+  <article className={`workflow-step status-${step.status}`}>
+    <header>
+      <h4>{step.agent_name}</h4>
+      <span className={`status-badge ${step.status}`}>{step.status.replace('_', ' ').toUpperCase()}</span>
+    </header>
+    {step.started_at && (
+      <p>
+        <strong>Started:</strong> {formatDate(step.started_at)}
+      </p>
+    )}
+    {step.completed_at && (
+      <p>
+        <strong>Completed:</strong> {formatDate(step.completed_at)}
+      </p>
+    )}
+    {step.exception_reason && (
+      <div className="exception-reason">
+        <strong>Exception:</strong> {step.exception_reason}
+      </div>
+    )}
+  </article>
 )
 
 function App() {
   const [state, setState] = useState<LoadState>('idle')
   const [error, setError] = useState<string>()
-  const [packet, setPacket] = useState<AgentPacket>()
-  const [activeTab, setActiveTab] = useState<TabView>('studies')
-  const [report, setReport] = useState<Report | null>(null)
-  const [voiceTranscript, setVoiceTranscript] = useState('')
-  const [voiceResponse, setVoiceResponse] = useState<VoiceResponse>()
-  const [voiceError, setVoiceError] = useState<string>()
-  const [voiceLoading, setVoiceLoading] = useState(false)
-  const [listening, setListening] = useState(false)
+  const [passportResponse, setPassportResponse] = useState<PassportResponse>()
+  const [activeTab, setActiveTab] = useState<TabView>('passport')
+  const [workflow, setWorkflow] = useState<WorkflowStatusResponse>()
+  const [requirements, setRequirements] = useState<RequirementsChecklist>()
   const [uploading, setUploading] = useState(false)
-  const [patientId, setPatientId] = useState('')
-  const recognitionRef = useRef<SpeechRecognitionLite | null>(null)
+  const [clinicianId, setClinicianId] = useState('clinician-001')
+  const [destinationId, setDestinationId] = useState('')
+  const [destinationType, setDestinationType] = useState<'hospital' | 'group' | 'staffing_firm' | 'telehealth'>('hospital')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const load = async () => {
       try {
         setState('loading')
-        const data = await fetchAgentPacket()
-        setPacket(data)
+        const data = await getPassport(clinicianId)
+        setPassportResponse(data)
         setState('ready')
       } catch (err) {
         console.error(err)
@@ -136,75 +127,51 @@ function App() {
       }
     }
     load()
-  }, [])
+  }, [clinicianId])
 
-  const startListening = () => {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SpeechRecognition) {
-      setVoiceError('Browser does not support SpeechRecognition API')
-      return
-    }
-    const recognition = new SpeechRecognition()
-    recognition.lang = 'en-US'
-    recognition.interimResults = false
-    recognition.maxAlternatives = 1
-    recognition.onresult = (event: SpeechRecognitionEventLite) => {
-      const transcript = event.results[0][0].transcript
-      setVoiceTranscript(transcript)
-      // Auto-submit for seamless voice workflow
-      setTimeout(() => handleVoiceSubmit(transcript), 300)
-    }
-    recognition.onerror = () => {
-      setVoiceError('Unable to capture audio. Check permissions and retry.')
-    }
-    recognition.onend = () => {
-      setListening(false)
-    }
-    recognition.start()
-    recognitionRef.current = recognition
-    setListening(true)
-    setVoiceError(undefined)
-  }
-
-  const stopListening = () => {
-    recognitionRef.current?.stop()
-    setListening(false)
-  }
-
-  const handleVoiceSubmit = async (transcriptOverride?: string) => {
-    const text = transcriptOverride || voiceTranscript.trim()
-    if (!text) {
-      setVoiceError('Speak or type a command first.')
+  const handleAuthorizeAccess = async () => {
+    if (!destinationId || !destinationType) {
+      alert('Please enter destination ID and select type')
       return
     }
     try {
-      setVoiceLoading(true)
-      setVoiceError(undefined)
-      const response = await submitVoiceCommand({ transcript: text })
-      setVoiceResponse(response)
-
-      // Auto-execute actions for seamless workflow
-      for (const action of response.actions) {
-        if (action.action === 'auto_populate' && packet) {
-          handleGenerateReport()
-        }
+      const auth: AuthorizationRequest = {
+        destination_id: destinationId,
+        destination_type: destinationType,
+        scoped_permissions: [],
       }
+      const newWorkflow = await authorizeAccess(clinicianId, auth)
+      // Load workflow status
+      const workflowStatus = await getWorkflowStatus(newWorkflow.workflow_id)
+      setWorkflow(workflowStatus)
+      setActiveTab('workflow')
     } catch (err) {
-      setVoiceError(err instanceof Error ? err.message : 'Voice command failed')
-    } finally {
-      setVoiceLoading(false)
+      alert('Authorization failed: ' + (err instanceof Error ? err.message : 'Unknown'))
+    }
+  }
+
+  const handleGetRequirements = async () => {
+    if (!destinationId || !destinationType) {
+      alert('Please enter destination ID and select type')
+      return
+    }
+    try {
+      const reqs = await getRequirements(destinationId, clinicianId, destinationType)
+      setRequirements(reqs)
+      setActiveTab('requirements')
+    } catch (err) {
+      alert('Failed to get requirements: ' + (err instanceof Error ? err.message : 'Unknown'))
     }
   }
 
   const handleFileUpload = async (file: File) => {
     try {
       setUploading(true)
-      const result = await uploadScreenCapture(file, patientId || undefined)
+      const result = await uploadDocument(clinicianId, 'supporting_document', file)
       alert(result.message)
-      // Reload case data after screen capture
-      const data = await fetchAgentPacket()
-      setPacket(data)
+      // Reload passport
+      const data = await getPassport(clinicianId)
+      setPassportResponse(data)
     } catch (err) {
       alert('Upload failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
@@ -212,70 +179,17 @@ function App() {
     }
   }
 
-  const handlePaste = async (e: React.ClipboardEvent) => {
-    const items = e.clipboardData.items
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
-        const file = items[i].getAsFile()
-        if (file) {
-          e.preventDefault()
-          await handleFileUpload(file)
-        }
-      }
-    }
-  }
-
-  const handleGenerateReport = async () => {
-    if (!packet) return
-    try {
-      const generated = await generateReport(
-        patientId || packet.case_id,
-        packet.studies[0]?.id || 'unknown',
-      )
-      setReport(generated)
-      setActiveTab('report')
-    } catch (err) {
-      alert('Report generation failed: ' + (err instanceof Error ? err.message : 'Unknown'))
-    }
-  }
-
-  const handleUpdateReportSection = (section: string, content: string) => {
-    if (!report) return
-    const updated = {
-      ...report,
-      sections: report.sections.map((s) =>
-        s.section === section ? { ...s, content, source: 'user' as const } : s,
-      ),
-    }
-    setReport(updated)
-  }
-
-  const handleSavePatientMemory = async () => {
-    if (!packet || !patientId) return
-    try {
-      await savePatientMemory({
-        patient_id: patientId,
-        studies: packet.studies,
-        notes: '',
-        last_updated: new Date().toISOString(),
-      })
-      alert('Patient context saved locally')
-    } catch (err) {
-      alert('Failed to save: ' + (err instanceof Error ? err.message : 'Unknown'))
-    }
-  }
-
   if (state === 'loading' || state === 'idle') {
     return (
       <main className="app-shell">
         <section className="loading">
-          <p>Initializing Radiology Action Assistant…</p>
+          <p>Loading Credentialing Passport…</p>
         </section>
       </main>
     )
   }
 
-  if (state === 'error' || !packet) {
+  if (state === 'error' || !passportResponse) {
     return (
       <main className="app-shell">
         <section className="error">
@@ -287,222 +201,351 @@ function App() {
     )
   }
 
+  const { passport, quality_report, verification_summary } = passportResponse
+
   return (
-    <main className="app-shell" onPaste={handlePaste}>
+    <main className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">Case</p>
-          <h1>{packet.case_id}</h1>
+          <p className="eyebrow">Credentialing Passport</p>
+          <h1>{passport.identity.legal_name}</h1>
+          <p>Clinician ID: {passport.clinician_id}</p>
         </div>
-      <div>
-          <p className="eyebrow">Agents active</p>
-          <h2>Screen · Change · Guidelines · Drafting · Voice</h2>
+        <div>
+          <p className="eyebrow">Agents Active</p>
+          <h2>
+            Orchestrator · Requirements · Intake · Quality · Verification · Enrollment · Guardrail
+            · Audit
+          </h2>
         </div>
-        <div className="timing-panel">
-          <p className="eyebrow">Latency</p>
-          <p>
-            Data {packet.timing.data_collection_ms} ms · Agents{' '}
-            {packet.timing.agent_processing_ms} ms
-          </p>
-        </div>
+        {quality_report && (
+          <div className="quality-score">
+            <p className="eyebrow">Completeness Score</p>
+            <h2>{(quality_report.completeness_score * 100).toFixed(0)}%</h2>
+          </div>
+        )}
       </header>
 
-      <div className="d2p-controls">
-        <div className="patient-id-input">
+      <div className="controls-panel">
+        <div className="clinician-input">
           <label>
-            Patient ID:
+            Clinician ID:
             <input
               type="text"
-              value={patientId}
-              onChange={(e) => setPatientId(e.target.value)}
-              placeholder="Enter patient ID for context"
+              value={clinicianId}
+              onChange={(e) => setClinicianId(e.target.value)}
+              placeholder="Enter clinician ID"
             />
           </label>
-          <button onClick={handleSavePatientMemory} disabled={!patientId}>
-            Save Context
+        </div>
+        <div className="destination-controls">
+          <label>
+            Destination ID:
+            <input
+              type="text"
+              value={destinationId}
+              onChange={(e) => setDestinationId(e.target.value)}
+              placeholder="e.g., hospital-001"
+            />
+          </label>
+          <label>
+            Destination Type:
+            <select
+              value={destinationType}
+              onChange={(e) =>
+                setDestinationType(e.target.value as 'hospital' | 'group' | 'staffing_firm' | 'telehealth')
+              }
+            >
+              <option value="hospital">Hospital</option>
+              <option value="group">Group Practice</option>
+              <option value="staffing_firm">Staffing Firm</option>
+              <option value="telehealth">Telehealth Network</option>
+            </select>
+          </label>
+          <button onClick={handleAuthorizeAccess} disabled={!destinationId}>
+            Authorize Access & Start Workflow
+          </button>
+          <button onClick={handleGetRequirements} disabled={!destinationId}>
+            View Requirements
           </button>
         </div>
-        <div className="screen-capture-controls">
+        <div className="document-upload">
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept=".pdf,.doc,.docx,.jpg,.png"
             style={{ display: 'none' }}
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) handleFileUpload(file)
             }}
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-          >
-            {uploading ? 'Uploading...' : '📷 Upload Screen'}
+          <button onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+            {uploading ? 'Uploading...' : '📄 Upload Document'}
           </button>
-          <span className="hint">Or paste image (Ctrl/Cmd+V)</span>
         </div>
       </div>
 
       <div className="tab-navigation">
         <button
-          className={activeTab === 'studies' ? 'active' : ''}
-          onClick={() => setActiveTab('studies')}
+          className={activeTab === 'passport' ? 'active' : ''}
+          onClick={() => setActiveTab('passport')}
         >
-          Studies
+          Passport
         </button>
         <button
-          className={activeTab === 'report' ? 'active' : ''}
-          onClick={() => setActiveTab('report')}
+          className={activeTab === 'workflow' ? 'active' : ''}
+          onClick={() => setActiveTab('workflow')}
         >
-          Report Editor
+          Workflow
         </button>
         <button
-          className={activeTab === 'agents' ? 'active' : ''}
-          onClick={() => setActiveTab('agents')}
+          className={activeTab === 'quality' ? 'active' : ''}
+          onClick={() => setActiveTab('quality')}
         >
-          Agent Suggestions
+          Quality Report
+        </button>
+        <button
+          className={activeTab === 'requirements' ? 'active' : ''}
+          onClick={() => setActiveTab('requirements')}
+        >
+          Requirements
         </button>
       </div>
 
-      {activeTab === 'studies' && (
-        <section className="pacs-layout">
-          <div className="viewport-column">
-            <h2>Studies on screen</h2>
-            <div className="viewport-grid">
-              {packet.studies.map((study) => (
-                <StudyCard key={study.id} study={study} />
+      {activeTab === 'passport' && (
+        <section className="passport-view">
+          <div className="passport-sections">
+            <div className="section">
+              <h2>Identity & Demographics</h2>
+              <p>
+                <strong>Legal Name:</strong> {passport.identity.legal_name}
+              </p>
+              <p>
+                <strong>Email:</strong> {passport.identity.email}
+              </p>
+              <p>
+                <strong>Phone:</strong> {passport.identity.phone}
+              </p>
+              <p>
+                <strong>Date of Birth:</strong> {formatDate(passport.identity.date_of_birth)}
+              </p>
+              {passport.identity.aliases.length > 0 && (
+                <p>
+                  <strong>Aliases:</strong> {passport.identity.aliases.join(', ')}
+                </p>
+              )}
+            </div>
+
+            <div className="section">
+              <h2>Education & Training</h2>
+              {passport.education.map((edu, idx) => (
+                <div key={idx} className="education-item">
+                  <p>
+                    <strong>{edu.degree}</strong> - {edu.institution}
+                  </p>
+                  <p>
+                    {formatDate(edu.start_date)} to {formatDate(edu.end_date)}
+                  </p>
+                </div>
+              ))}
+              {passport.training.map((train, idx) => (
+                <div key={idx} className="training-item">
+                  <p>
+                    <strong>{train.program_name}</strong> - {train.institution}
+                  </p>
+                  <p>
+                    {train.specialty} · {formatDate(train.start_date)} to {formatDate(train.end_date)}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="section">
+              <h2>Licenses</h2>
+              {passport.licenses.state_licenses.map((license, idx) => (
+                <div key={idx} className="license-item">
+                  <p>
+                    <strong>{license.state}</strong> - {license.license_number}
+                  </p>
+                  <p>
+                    Status: {license.status} · Expires: {formatDate(license.expiration_date)}
+                  </p>
+                </div>
+              ))}
+              {passport.licenses.dea_number && (
+                <div className="license-item">
+                  <p>
+                    <strong>DEA:</strong> {passport.licenses.dea_number}
+                  </p>
+                  {passport.licenses.dea_expiration && (
+                    <p>Expires: {formatDate(passport.licenses.dea_expiration)}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="section">
+              <h2>Board Certifications</h2>
+              {passport.board_certifications.map((cert, idx) => (
+                <div key={idx} className="cert-item">
+                  <p>
+                    <strong>{cert.specialty}</strong> - {cert.board_name}
+                  </p>
+                  <p>
+                    Status: {cert.status}
+                    {cert.expiration_date && ` · Expires: ${formatDate(cert.expiration_date)}`}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {passport.malpractice && (
+              <div className="section">
+                <h2>Malpractice Insurance</h2>
+                <p>
+                  <strong>Carrier:</strong> {passport.malpractice.carrier}
+                </p>
+                <p>
+                  <strong>Policy:</strong> {passport.malpractice.policy_number}
+                </p>
+                <p>
+                  Coverage: ${passport.malpractice.coverage_amount.toLocaleString()} · Expires:{' '}
+                  {formatDate(passport.malpractice.expiration_date)}
+                </p>
+              </div>
+            )}
+
+            <div className="section">
+              <h2>Work History</h2>
+              {passport.work_history.map((work, idx) => (
+                <div key={idx} className="work-item">
+                  <p>
+                    <strong>{work.position}</strong> - {work.employer}
+                  </p>
+                  <p>
+                    {formatDate(work.start_date)}
+                    {work.end_date ? ` to ${formatDate(work.end_date)}` : ' - Present'}
+                  </p>
+                </div>
               ))}
             </div>
           </div>
+
+          {verification_summary && (
+            <aside className="verification-sidebar">
+              <h3>Verification Summary</h3>
+              <div className="verification-stats">
+                <p>
+                  <strong>Verified:</strong> {verification_summary.verified_count}
+                </p>
+                <p>
+                  <strong>Failed:</strong> {verification_summary.failed_count}
+                </p>
+                <p>
+                  <strong>Exceptions:</strong> {verification_summary.exception_count}
+                </p>
+              </div>
+              <div className="verification-results">
+                {verification_summary.results.map((result) => (
+                  <VerificationResultCard key={result.verification_id} result={result} />
+                ))}
+              </div>
+            </aside>
+          )}
         </section>
       )}
 
-      {activeTab === 'report' && (
-        <section className="report-editor">
-          <div className="report-header">
-            <h2>Report Editor</h2>
-            <button onClick={handleGenerateReport} className="generate-btn">
-              Auto-Populate from Agents
-            </button>
-          </div>
-          {report ? (
-            <div className="report-sections">
-              {report.sections.map((section) => (
-                <ReportSectionEditor
-                  key={section.section}
-                  section={section}
-                  onUpdate={(content) =>
-                    handleUpdateReportSection(section.section, content)
-                  }
-                />
-              ))}
-            </div>
+      {activeTab === 'workflow' && (
+        <section className="workflow-view">
+          {workflow ? (
+            <>
+              <div className="workflow-header">
+                <h2>Workflow: {workflow.workflow.workflow_id}</h2>
+                <div className="workflow-progress">
+                  <div className="progress-bar">
+                    <div
+                      className="progress-fill"
+                      style={{ width: `${workflow.progress_percentage}%` }}
+                    />
+                  </div>
+                  <p>{workflow.progress_percentage.toFixed(0)}% Complete</p>
+                </div>
+                <p>
+                  <strong>Status:</strong> {workflow.workflow.status.replace('_', ' ').toUpperCase()}
+                </p>
+                <p>
+                  <strong>Destination:</strong> {workflow.workflow.destination_id} ({workflow.workflow.destination_type})
+                </p>
+              </div>
+              <div className="workflow-steps">
+                {workflow.workflow.steps.map((step) => (
+                  <WorkflowStepCard key={step.step_id} step={step} />
+                ))}
+              </div>
+              {workflow.workflow.exceptions.length > 0 && (
+                <div className="exceptions-list">
+                  <h3>Exceptions</h3>
+                  <ul>
+                    {workflow.workflow.exceptions.map((exc, idx) => (
+                      <li key={idx}>{exc}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
           ) : (
-            <div className="empty-report">
-              <p>No report generated yet. Click "Auto-Populate from Agents" to start.</p>
+            <div className="empty-workflow">
+              <p>No active workflow. Authorize access to start a credentialing workflow.</p>
             </div>
           )}
         </section>
       )}
 
-      {activeTab === 'agents' && (
-        <section className="pacs-layout">
-          <div className="viewport-column">
-            <h2>Agent Analysis</h2>
-            <div className="viewport-grid">
-              {packet.studies.map((study) => (
-                <StudyCard key={study.id} study={study} />
-              ))}
+      {activeTab === 'quality' && quality_report && (
+        <section className="quality-view">
+          <div className="quality-header">
+            <h2>Data Quality Report</h2>
+            <div className="completeness-score">
+              <h3>Completeness: {(quality_report.completeness_score * 100).toFixed(0)}%</h3>
             </div>
           </div>
+          <div className="quality-issues">
+            {quality_report.issues.length > 0 ? (
+              quality_report.issues.map((issue, idx) => (
+                <QualityIssueCard key={idx} issue={issue} />
+              ))
+            ) : (
+              <p className="no-issues">No quality issues found. Passport is complete and consistent.</p>
+            )}
+          </div>
+        </section>
+      )}
 
-          <aside className="agent-sidebar">
-            <div>
-              <h3>Longitudinal Agent</h3>
-              <div className="card-stack">
-                {packet.longitudinal.map((item) => (
-                  <LongitudinalCard key={item.lesion} item={item} />
+      {activeTab === 'requirements' && (
+        <section className="requirements-view">
+          {requirements ? (
+            <>
+              <div className="requirements-header">
+                <h2>Requirements Checklist</h2>
+                <p>
+                  <strong>Destination:</strong> {requirements.destination_id} ({requirements.destination_type})
+                </p>
+                <p>
+                  <strong>Generated:</strong> {formatDate(requirements.generated_at)}
+                </p>
+              </div>
+              <div className="requirements-list">
+                {requirements.requirements.map((req) => (
+                  <RequirementCard key={req.requirement_id} requirement={req} />
                 ))}
               </div>
+            </>
+          ) : (
+            <div className="empty-requirements">
+              <p>No requirements loaded. Click "View Requirements" to generate a checklist.</p>
             </div>
-
-            <div>
-              <h3>Guideline Agent</h3>
-              <div className="card-stack">
-                {packet.guideline_recs.map((rec) => (
-                  <article key={rec.condition} className="agent-card">
-                    <header>
-                      <h4>{rec.guideline}</h4>
-                      <span>{rec.condition}</span>
-                    </header>
-                    <p>{rec.recommendation}</p>
-                    <a href={rec.citation_url} target="_blank" rel="noreferrer">
-                      View source
-                    </a>
-                  </article>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3>Drafting Agent</h3>
-              <div className="card-stack">
-                {packet.drafting_hints.map((hint) => (
-                  <article key={hint.section} className="agent-card">
-                    <header>
-                      <h4>{hint.section}</h4>
-                    </header>
-                    <p>{hint.suggestion}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3>Voice Agent</h3>
-              <div className="voice-card">
-                <div className="voice-controls">
-                  <button
-                    type="button"
-                    className={listening ? 'mic-button active' : 'mic-button'}
-                    onClick={listening ? stopListening : startListening}
-                  >
-                    {listening ? '🎤 Listening…' : '🎤 Tap to speak'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleVoiceSubmit()}
-                    disabled={voiceLoading}
-                  >
-                    {voiceLoading ? 'Sending…' : 'Send'}
-                  </button>
-                </div>
-                <textarea
-                  placeholder='Try: "Summarize changes", "Show guidelines", "Auto-populate report"'
-                  value={voiceTranscript}
-                  onChange={(event) => setVoiceTranscript(event.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                      handleVoiceSubmit()
-                    }
-                  }}
-                />
-                {voiceError && <p className="voice-error">{voiceError}</p>}
-                {voiceResponse && (
-                  <div className="voice-response">
-                    <p>{voiceResponse.narration}</p>
-                    <ul>
-                      {voiceResponse.actions.map((action) => (
-                        <li key={`${action.action}-${action.target}`}>
-                          <strong>{action.action}</strong> → {action.message}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          </aside>
+          )}
         </section>
       )}
     </main>
