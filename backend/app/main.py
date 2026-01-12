@@ -2,12 +2,27 @@
 FastAPI application for the Credentialing Passport system.
 """
 from datetime import datetime
-from typing import List
+from typing import List, Optional
+import uuid
+import os
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Query
+from fastapi import FastAPI, HTTPException, UploadFile, File, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
-from . import agents, data
+from . import agents
+from .database import get_db, init_db
+from .db_service import (
+    create_passport,
+    get_passport as get_passport_db,
+    update_passport,
+    list_passports,
+    create_workflow,
+    get_workflow as get_workflow_db,
+    update_workflow,
+    list_workflows,
+    save_document,
+)
 from .models import (
     Passport,
     PassportResponse,
@@ -22,37 +37,48 @@ from .models import (
     AuthorizationRequest,
 )
 
-app = FastAPI(title="Credentialing Passport API")
+app = FastAPI(
+    title="Credentialing Passport API",
+    description="Universal clinician credentialing and enrollment platform",
+    version="1.0.0",
+)
+
+# Initialize database on startup
+@app.on_event("startup")
+def startup_event():
+    init_db()
 
 # Allow local dev frontends to communicate with the API.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "*"],  # Allow all in dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# In-memory storage (replace with database in production)
-_passports: dict[str, Passport] = {
-    data.CURRENT_CLINICIAN_ID: data.SAMPLE_PASSPORT,
-}
-_workflows: dict[str, Workflow] = {}
-
 
 @app.get("/api/ping")
 def ping() -> dict[str, str]:
     """Basic readiness probe."""
-    return {"status": "ok", "service": "Credentialing Passport API"}
+    return {"status": "ok", "service": "Credentialing Passport API", "version": "1.0.0"}
+
+
+@app.get("/api/passports", response_model=List[Passport])
+def list_all_passports(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    """List all passports."""
+    db_passports = list_passports(db, skip=skip, limit=limit)
+    return [Passport(**p.passport_data) for p in db_passports]
 
 
 @app.get("/api/passport/{clinician_id}", response_model=PassportResponse)
-def get_passport(clinician_id: str) -> PassportResponse:
+def get_passport(clinician_id: str, db: Session = Depends(get_db)) -> PassportResponse:
     """Get clinician passport with quality report and verification summary."""
-    if clinician_id not in _passports:
+    db_passport = get_passport_db(db, clinician_id)
+    if not db_passport:
         raise HTTPException(status_code=404, detail="Passport not found")
     
-    passport = _passports[clinician_id]
+    passport = Passport(**db_passport.passport_data)
     
     # Generate quality report
     quality_report = agents.generate_quality_report(passport)
@@ -81,10 +107,17 @@ def get_passport(clinician_id: str) -> PassportResponse:
 
 
 @app.post("/api/passport", response_model=Passport)
-def create_or_update_passport(passport: Passport) -> Passport:
+def create_or_update_passport(passport: Passport, db: Session = Depends(get_db)) -> Passport:
     """Create or update a clinician passport."""
     passport.updated_at = datetime.utcnow()
-    _passports[passport.clinician_id] = passport
+    
+    # Check if exists
+    existing = get_passport_db(db, passport.clinician_id)
+    if existing:
+        update_passport(db, passport.clinician_id, passport)
+    else:
+        create_passport(db, passport)
+    
     return passport
 
 
@@ -92,12 +125,14 @@ def create_or_update_passport(passport: Passport) -> Passport:
 def authorize_access(
     clinician_id: str,
     authorization: AuthorizationRequest,
+    db: Session = Depends(get_db),
 ) -> Workflow:
     """Authorize organization access and start credentialing workflow."""
-    if clinician_id not in _passports:
+    db_passport = get_passport_db(db, clinician_id)
+    if not db_passport:
         raise HTTPException(status_code=404, detail="Passport not found")
     
-    passport = _passports[clinician_id]
+    passport = Passport(**db_passport.passport_data)
     
     # Generate requirements checklist
     requirements = agents.generate_requirements_checklist(
@@ -113,7 +148,7 @@ def authorize_access(
     )
     
     # Create workflow
-    workflow_id = f"workflow-{clinician_id}-{authorization.destination_id}"
+    workflow_id = f"wf-{uuid.uuid4().hex[:12]}"
     workflow = Workflow(
         workflow_id=workflow_id,
         clinician_id=clinician_id,
@@ -125,17 +160,30 @@ def authorize_access(
         updated_at=datetime.utcnow(),
     )
     
-    _workflows[workflow_id] = workflow
+    create_workflow(db, workflow)
     return workflow
 
 
+@app.get("/api/workflows", response_model=List[Workflow])
+def list_all_workflows(
+    clinician_id: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    """List workflows, optionally filtered by clinician."""
+    db_workflows = list_workflows(db, clinician_id=clinician_id, skip=skip, limit=limit)
+    return [Workflow(**w.workflow_data) for w in db_workflows]
+
+
 @app.get("/api/workflow/{workflow_id}", response_model=WorkflowStatusResponse)
-def get_workflow_status(workflow_id: str) -> WorkflowStatusResponse:
+def get_workflow_status(workflow_id: str, db: Session = Depends(get_db)) -> WorkflowStatusResponse:
     """Get workflow status, timeline, and progress."""
-    if workflow_id not in _workflows:
+    db_workflow = get_workflow_db(db, workflow_id)
+    if not db_workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
     
-    workflow = _workflows[workflow_id]
+    workflow = Workflow(**db_workflow.workflow_data)
     
     # Calculate progress
     completed_steps = sum(1 for step in workflow.steps if step.status == WorkflowStatus.COMPLETED)
@@ -165,13 +213,14 @@ def start_workflow(
     clinician_id: str = Query(...),
     destination_id: str = Query(...),
     destination_type: str = Query(...),
+    db: Session = Depends(get_db),
 ) -> Workflow:
     """Start a new credentialing workflow."""
     authorization = AuthorizationRequest(
         destination_id=destination_id,
         destination_type=destination_type,
     )
-    return authorize_access(clinician_id, authorization)
+    return authorize_access(clinician_id, authorization, db)
 
 
 @app.get("/api/requirements/{destination_id}", response_model=RequirementsChecklist)
@@ -179,12 +228,14 @@ def get_requirements(
     destination_id: str,
     clinician_id: str = Query(...),
     destination_type: str = Query(..., regex="^(hospital|group|staffing_firm|telehealth)$"),
+    db: Session = Depends(get_db),
 ) -> RequirementsChecklist:
     """Get requirements checklist for a destination."""
-    if clinician_id not in _passports:
+    db_passport = get_passport_db(db, clinician_id)
+    if not db_passport:
         raise HTTPException(status_code=404, detail="Passport not found")
     
-    passport = _passports[clinician_id]
+    passport = Passport(**db_passport.passport_data)
     return agents.generate_requirements_checklist(
         destination_id,
         destination_type,
@@ -197,28 +248,32 @@ async def upload_document(
     clinician_id: str = Query(...),
     document_type: str = Query(...),
     file: UploadFile = File(...),
+    db: Session = Depends(get_db),
 ) -> dict:
     """Upload a supporting document to the passport."""
-    if clinician_id not in _passports:
+    db_passport = get_passport_db(db, clinician_id)
+    if not db_passport:
         raise HTTPException(status_code=404, detail="Passport not found")
     
-    passport = _passports[clinician_id]
+    # Create uploads directory if it doesn't exist
+    upload_dir = os.path.join(os.getcwd(), "uploads", clinician_id)
+    os.makedirs(upload_dir, exist_ok=True)
     
-    # In production, store file in secure vault
-    # For demo, just acknowledge receipt
-    await file.read()
+    # Save file
+    file_path = os.path.join(upload_dir, file.filename or "uploaded_file")
+    with open(file_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
     
-    from .models import Document
-    document = Document(
-        document_id=f"doc-{datetime.utcnow().timestamp()}",
-        document_type=document_type,
-        file_name=file.filename or "uploaded_file",
-        upload_date=datetime.utcnow(),
-        source_artifact=f"upload-{file.filename}",
+    # Save document metadata
+    document = save_document(
+        db,
+        clinician_id,
+        document_type,
+        file.filename or "uploaded_file",
+        file_path,
+        {"size": len(content), "content_type": file.content_type},
     )
-    
-    passport.documents.append(document)
-    passport.updated_at = datetime.utcnow()
     
     return {
         "status": "uploaded",
@@ -228,12 +283,13 @@ async def upload_document(
 
 
 @app.get("/api/verification/{verification_id}", response_model=VerificationSummary)
-def get_verification(verification_id: str, clinician_id: str = Query(...)) -> VerificationSummary:
+def get_verification(verification_id: str, clinician_id: str = Query(...), db: Session = Depends(get_db)) -> VerificationSummary:
     """Get verification results for a clinician."""
-    if clinician_id not in _passports:
+    db_passport = get_passport_db(db, clinician_id)
+    if not db_passport:
         raise HTTPException(status_code=404, detail="Passport not found")
     
-    passport = _passports[clinician_id]
+    passport = Passport(**db_passport.passport_data)
     
     # Generate mock verifications
     verifications: List[VerificationResult] = []
@@ -257,9 +313,11 @@ def submit_enrollment(
     clinician_id: str = Query(...),
     payer_id: str = Query(...),
     payer_name: str = Query(...),
+    db: Session = Depends(get_db),
 ) -> dict:
     """Submit payer enrollment application."""
-    if clinician_id not in _passports:
+    db_passport = get_passport_db(db, clinician_id)
+    if not db_passport:
         raise HTTPException(status_code=404, detail="Passport not found")
     
     # In production, generate payer-specific application and submit via portal
@@ -269,17 +327,18 @@ def submit_enrollment(
         "clinician_id": clinician_id,
         "payer_id": payer_id,
         "payer_name": payer_name,
-        "submission_id": f"sub-{datetime.utcnow().timestamp()}",
+        "submission_id": f"sub-{uuid.uuid4().hex[:12]}",
         "submitted_at": datetime.utcnow().isoformat(),
         "message": f"Enrollment application submitted to {payer_name}",
     }
 
 
 @app.get("/api/passport/{clinician_id}/quality", response_model=QualityReport)
-def get_quality_report(clinician_id: str) -> QualityReport:
+def get_quality_report(clinician_id: str, db: Session = Depends(get_db)) -> QualityReport:
     """Get data quality report for a passport."""
-    if clinician_id not in _passports:
+    db_passport = get_passport_db(db, clinician_id)
+    if not db_passport:
         raise HTTPException(status_code=404, detail="Passport not found")
     
-    passport = _passports[clinician_id]
+    passport = Passport(**db_passport.passport_data)
     return agents.generate_quality_report(passport)

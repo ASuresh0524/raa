@@ -45,10 +45,10 @@ Credentialing Passport is a production-ready web application that enables clinic
 
 ## Prerequisites
 
-- **Python 3.11+**
-- **Node.js 20+** (Vite 7 requires Node ≥20.19.0)
-- **PostgreSQL** (for production passport storage)
-- **Redis** (for caching and session management)
+- **Python 3.10+**
+- **Node.js 16+** (Vite 4 compatible)
+- **SQLite** (included, used for development)
+- **PostgreSQL** (optional, for production - set DATABASE_URL environment variable)
 
 ## Quick Start
 

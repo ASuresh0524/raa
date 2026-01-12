@@ -167,3 +167,11 @@ export async function getQualityReport(clinicianId: string): Promise<QualityRepo
   }
   return (await response.json()) as QualityReport
 }
+
+export async function listAllPassports(): Promise<Passport[]> {
+  const response = await fetch(`${API_BASE}/api/passports`)
+  if (!response.ok) {
+    throw new Error('Failed to list passports')
+  }
+  return (await response.json()) as Passport[]
+}

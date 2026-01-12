@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import {
   getPassport,
+  createOrUpdatePassport,
   authorizeAccess,
   getWorkflowStatus,
   uploadDocument,
   getRequirements,
+  listAllPassports,
 } from './api'
 import type {
+  Passport,
   PassportResponse,
   Workflow,
   WorkflowStatusResponse,
@@ -19,6 +22,7 @@ import type {
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 type TabView = 'passport' | 'workflow' | 'quality' | 'requirements'
+type ViewMode = 'list' | 'view' | 'create' | 'edit'
 
 const formatDate = (value: string) =>
   new Date(value).toLocaleDateString('en-US', {
@@ -100,37 +104,72 @@ const WorkflowStepCard = ({ step }: { step: any }) => (
   </article>
 )
 
+const PassportListItem = ({
+  passport,
+  onClick,
+}: {
+  passport: Passport
+  onClick: () => void
+}) => (
+  <div className="passport-list-item" onClick={onClick}>
+    <div>
+      <h3>{passport.identity.legal_name}</h3>
+      <p className="text-light">ID: {passport.clinician_id}</p>
+    </div>
+    <div>
+      <p className="text-light">
+        {passport.licenses.state_licenses.length} License{passport.licenses.state_licenses.length !== 1 ? 's' : ''}
+      </p>
+      <p className="text-light">Updated: {formatDate(passport.updated_at)}</p>
+    </div>
+  </div>
+)
+
 function App() {
   const [state, setState] = useState<LoadState>('idle')
   const [error, setError] = useState<string>()
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [passportResponse, setPassportResponse] = useState<PassportResponse>()
+  const [passports, setPassports] = useState<Passport[]>([])
   const [activeTab, setActiveTab] = useState<TabView>('passport')
   const [workflow, setWorkflow] = useState<WorkflowStatusResponse>()
   const [requirements, setRequirements] = useState<RequirementsChecklist>()
   const [uploading, setUploading] = useState(false)
-  const [clinicianId, setClinicianId] = useState('clinician-001')
+  const [clinicianId, setClinicianId] = useState('')
   const [destinationId, setDestinationId] = useState('')
   const [destinationType, setDestinationType] = useState<'hospital' | 'group' | 'staffing_firm' | 'telehealth'>('hospital')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        setState('loading')
-        const data = await getPassport(clinicianId)
-        setPassportResponse(data)
-        setState('ready')
-      } catch (err) {
-        console.error(err)
-        setError(err instanceof Error ? err.message : 'Unknown error')
-        setState('error')
-      }
+    loadPassports()
+  }, [])
+
+  const loadPassports = async () => {
+    try {
+      const data = await listAllPassports()
+      setPassports(data)
+    } catch (err) {
+      console.error('Failed to load passports:', err)
     }
-    load()
-  }, [clinicianId])
+  }
+
+  const loadPassport = async (id: string) => {
+    try {
+      setState('loading')
+      const data = await getPassport(id)
+      setPassportResponse(data)
+      setClinicianId(id)
+      setViewMode('view')
+      setState('ready')
+    } catch (err) {
+      console.error(err)
+      setError(err instanceof Error ? err.message : 'Unknown error')
+      setState('error')
+    }
+  }
 
   const handleAuthorizeAccess = async () => {
-    if (!destinationId || !destinationType) {
+    if (!destinationId || !destinationType || !clinicianId) {
       alert('Please enter destination ID and select type')
       return
     }
@@ -141,7 +180,6 @@ function App() {
         scoped_permissions: [],
       }
       const newWorkflow = await authorizeAccess(clinicianId, auth)
-      // Load workflow status
       const workflowStatus = await getWorkflowStatus(newWorkflow.workflow_id)
       setWorkflow(workflowStatus)
       setActiveTab('workflow')
@@ -151,7 +189,7 @@ function App() {
   }
 
   const handleGetRequirements = async () => {
-    if (!destinationId || !destinationType) {
+    if (!destinationId || !destinationType || !clinicianId) {
       alert('Please enter destination ID and select type')
       return
     }
@@ -165,18 +203,156 @@ function App() {
   }
 
   const handleFileUpload = async (file: File) => {
+    if (!clinicianId) {
+      alert('Please select a passport first')
+      return
+    }
     try {
       setUploading(true)
       const result = await uploadDocument(clinicianId, 'supporting_document', file)
       alert(result.message)
-      // Reload passport
-      const data = await getPassport(clinicianId)
-      setPassportResponse(data)
+      if (passportResponse) {
+        const data = await getPassport(clinicianId)
+        setPassportResponse(data)
+      }
     } catch (err) {
       alert('Upload failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
       setUploading(false)
     }
+  }
+
+  const handleCreatePassport = () => {
+    setViewMode('create')
+    setClinicianId('')
+    setPassportResponse(undefined)
+  }
+
+  if (viewMode === 'list') {
+    return (
+      <main className="app-shell">
+        <header className="app-header">
+          <div>
+            <p className="eyebrow">Credentialing Passport</p>
+            <h1>Clinician Passports</h1>
+          </div>
+          <button onClick={handleCreatePassport}>+ Create New Passport</button>
+        </header>
+
+        <div className="passport-list-view">
+          {passports.length === 0 ? (
+            <div className="empty-state">
+              <h2>No Passports Yet</h2>
+              <p>Create your first credentialing passport to get started.</p>
+              <button onClick={handleCreatePassport}>Create Passport</button>
+            </div>
+          ) : (
+            <div className="passport-list">
+              {passports.map((p) => (
+                <PassportListItem
+                  key={p.clinician_id}
+                  passport={p}
+                  onClick={() => loadPassport(p.clinician_id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    )
+  }
+
+  if (viewMode === 'create') {
+    return (
+      <main className="app-shell">
+        <header className="app-header">
+          <div>
+            <p className="eyebrow">Create Passport</p>
+            <h1>New Credentialing Passport</h1>
+          </div>
+          <button onClick={() => setViewMode('list')}>← Back to List</button>
+        </header>
+
+        <div className="create-passport-view">
+          <div className="section">
+            <h2>Basic Information</h2>
+            <div className="form-group">
+              <label>Clinician ID</label>
+              <input
+                type="text"
+                value={clinicianId}
+                onChange={(e) => setClinicianId(e.target.value)}
+                placeholder="e.g., clinician-001"
+              />
+            </div>
+            <div className="form-group">
+              <label>Legal Name</label>
+              <input type="text" placeholder="Dr. John Doe" />
+            </div>
+            <div className="form-group">
+              <label>Email</label>
+              <input type="email" placeholder="john.doe@example.com" />
+            </div>
+            <div className="form-group">
+              <label>Date of Birth</label>
+              <input type="date" />
+            </div>
+            <div className="form-actions">
+              <button onClick={() => setViewMode('list')}>Cancel</button>
+              <button
+                onClick={async () => {
+                  if (!clinicianId) {
+                    alert('Please enter a Clinician ID')
+                    return
+                  }
+                  // Create minimal passport
+                  const newPassport: Passport = {
+                    clinician_id: clinicianId,
+                    identity: {
+                      legal_name: '',
+                      aliases: [],
+                      date_of_birth: new Date().toISOString().split('T')[0],
+                      email: '',
+                      phone: '',
+                      address_history: [],
+                    },
+                    education: [],
+                    training: [],
+                    work_history: [],
+                    hospital_affiliations: [],
+                    licenses: {
+                      state_licenses: [],
+                      cds_registrations: [],
+                    },
+                    board_certifications: [],
+                    disclosures: [],
+                    references: [],
+                    enrollment: {
+                      practice_locations: [],
+                      w9_on_file: false,
+                      specialties: [],
+                      taxonomies: [],
+                    },
+                    documents: [],
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  }
+                  try {
+                    await createOrUpdatePassport(newPassport)
+                    await loadPassports()
+                    await loadPassport(clinicianId)
+                  } catch (err) {
+                    alert('Failed to create passport: ' + (err instanceof Error ? err.message : 'Unknown'))
+                  }
+                }}
+              >
+                Create Passport
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   if (state === 'loading' || state === 'idle') {
@@ -193,9 +369,9 @@ function App() {
     return (
       <main className="app-shell">
         <section className="error">
-          <h2>Unable to reach backend</h2>
+          <h2>Unable to load passport</h2>
           <p>{error}</p>
-          <p>Start FastAPI on port 8000 and reload this page.</p>
+          <button onClick={() => setViewMode('list')}>Back to List</button>
         </section>
       </main>
     )
@@ -208,7 +384,7 @@ function App() {
       <header className="app-header">
         <div>
           <p className="eyebrow">Credentialing Passport</p>
-          <h1>{passport.identity.legal_name}</h1>
+          <h1>{passport.identity.legal_name || 'Unnamed Passport'}</h1>
           <p>Clinician ID: {passport.clinician_id}</p>
         </div>
         <div>
@@ -224,20 +400,10 @@ function App() {
             <h2>{(quality_report.completeness_score * 100).toFixed(0)}%</h2>
           </div>
         )}
+        <button onClick={() => setViewMode('list')}>← Back to List</button>
       </header>
 
       <div className="controls-panel">
-        <div className="clinician-input">
-          <label>
-            Clinician ID:
-            <input
-              type="text"
-              value={clinicianId}
-              onChange={(e) => setClinicianId(e.target.value)}
-              placeholder="Enter clinician ID"
-            />
-          </label>
-        </div>
         <div className="destination-controls">
           <label>
             Destination ID:
@@ -319,17 +485,19 @@ function App() {
             <div className="section">
               <h2>Identity & Demographics</h2>
               <p>
-                <strong>Legal Name:</strong> {passport.identity.legal_name}
+                <strong>Legal Name:</strong> {passport.identity.legal_name || 'Not provided'}
               </p>
               <p>
-                <strong>Email:</strong> {passport.identity.email}
+                <strong>Email:</strong> {passport.identity.email || 'Not provided'}
               </p>
               <p>
-                <strong>Phone:</strong> {passport.identity.phone}
+                <strong>Phone:</strong> {passport.identity.phone || 'Not provided'}
               </p>
-              <p>
-                <strong>Date of Birth:</strong> {formatDate(passport.identity.date_of_birth)}
-              </p>
+              {passport.identity.date_of_birth && (
+                <p>
+                  <strong>Date of Birth:</strong> {formatDate(passport.identity.date_of_birth)}
+                </p>
+              )}
               {passport.identity.aliases.length > 0 && (
                 <p>
                   <strong>Aliases:</strong> {passport.identity.aliases.join(', ')}
@@ -337,68 +505,74 @@ function App() {
               )}
             </div>
 
-            <div className="section">
-              <h2>Education & Training</h2>
-              {passport.education.map((edu, idx) => (
-                <div key={idx} className="education-item">
-                  <p>
-                    <strong>{edu.degree}</strong> - {edu.institution}
-                  </p>
-                  <p>
-                    {formatDate(edu.start_date)} to {formatDate(edu.end_date)}
-                  </p>
-                </div>
-              ))}
-              {passport.training.map((train, idx) => (
-                <div key={idx} className="training-item">
-                  <p>
-                    <strong>{train.program_name}</strong> - {train.institution}
-                  </p>
-                  <p>
-                    {train.specialty} · {formatDate(train.start_date)} to {formatDate(train.end_date)}
-                  </p>
-                </div>
-              ))}
-            </div>
+            {passport.education.length > 0 && (
+              <div className="section">
+                <h2>Education & Training</h2>
+                {passport.education.map((edu, idx) => (
+                  <div key={idx} className="education-item">
+                    <p>
+                      <strong>{edu.degree}</strong> - {edu.institution}
+                    </p>
+                    <p>
+                      {formatDate(edu.start_date)} to {formatDate(edu.end_date)}
+                    </p>
+                  </div>
+                ))}
+                {passport.training.map((train, idx) => (
+                  <div key={idx} className="training-item">
+                    <p>
+                      <strong>{train.program_name}</strong> - {train.institution}
+                    </p>
+                    <p>
+                      {train.specialty} · {formatDate(train.start_date)} to {formatDate(train.end_date)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
 
-            <div className="section">
-              <h2>Licenses</h2>
-              {passport.licenses.state_licenses.map((license, idx) => (
-                <div key={idx} className="license-item">
-                  <p>
-                    <strong>{license.state}</strong> - {license.license_number}
-                  </p>
-                  <p>
-                    Status: {license.status} · Expires: {formatDate(license.expiration_date)}
-                  </p>
-                </div>
-              ))}
-              {passport.licenses.dea_number && (
-                <div className="license-item">
-                  <p>
-                    <strong>DEA:</strong> {passport.licenses.dea_number}
-                  </p>
-                  {passport.licenses.dea_expiration && (
-                    <p>Expires: {formatDate(passport.licenses.dea_expiration)}</p>
-                  )}
-                </div>
-              )}
-            </div>
+            {passport.licenses.state_licenses.length > 0 && (
+              <div className="section">
+                <h2>Licenses</h2>
+                {passport.licenses.state_licenses.map((license, idx) => (
+                  <div key={idx} className="license-item">
+                    <p>
+                      <strong>{license.state}</strong> - {license.license_number}
+                    </p>
+                    <p>
+                      Status: {license.status} · Expires: {formatDate(license.expiration_date)}
+                    </p>
+                  </div>
+                ))}
+                {passport.licenses.dea_number && (
+                  <div className="license-item">
+                    <p>
+                      <strong>DEA:</strong> {passport.licenses.dea_number}
+                    </p>
+                    {passport.licenses.dea_expiration && (
+                      <p>Expires: {formatDate(passport.licenses.dea_expiration)}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
-            <div className="section">
-              <h2>Board Certifications</h2>
-              {passport.board_certifications.map((cert, idx) => (
-                <div key={idx} className="cert-item">
-                  <p>
-                    <strong>{cert.specialty}</strong> - {cert.board_name}
-                  </p>
-                  <p>
-                    Status: {cert.status}
-                    {cert.expiration_date && ` · Expires: ${formatDate(cert.expiration_date)}`}
-                  </p>
-                </div>
-              ))}
-            </div>
+            {passport.board_certifications.length > 0 && (
+              <div className="section">
+                <h2>Board Certifications</h2>
+                {passport.board_certifications.map((cert, idx) => (
+                  <div key={idx} className="cert-item">
+                    <p>
+                      <strong>{cert.specialty}</strong> - {cert.board_name}
+                    </p>
+                    <p>
+                      Status: {cert.status}
+                      {cert.expiration_date && ` · Expires: ${formatDate(cert.expiration_date)}`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {passport.malpractice && (
               <div className="section">
@@ -416,20 +590,22 @@ function App() {
               </div>
             )}
 
-            <div className="section">
-              <h2>Work History</h2>
-              {passport.work_history.map((work, idx) => (
-                <div key={idx} className="work-item">
-                  <p>
-                    <strong>{work.position}</strong> - {work.employer}
-                  </p>
-                  <p>
-                    {formatDate(work.start_date)}
-                    {work.end_date ? ` to ${formatDate(work.end_date)}` : ' - Present'}
-                  </p>
-                </div>
-              ))}
-            </div>
+            {passport.work_history.length > 0 && (
+              <div className="section">
+                <h2>Work History</h2>
+                {passport.work_history.map((work, idx) => (
+                  <div key={idx} className="work-item">
+                    <p>
+                      <strong>{work.position}</strong> - {work.employer}
+                    </p>
+                    <p>
+                      {formatDate(work.start_date)}
+                      {work.end_date ? ` to ${formatDate(work.end_date)}` : ' - Present'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {verification_summary && (
