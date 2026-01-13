@@ -52,29 +52,54 @@ Credentialing Passport is a production-ready web application that enables clinic
 
 ## Quick Start
 
-### Backend (FastAPI)
+### Option 1: Streamlit App (Recommended for Deployment)
 
 ```bash
-cd backend
-python3 -m venv .venv        # Create virtualenv (Python 3.11+)
-source .venv/bin/activate    # On Windows: .venv\Scripts\activate
+# Install Streamlit dependencies
 pip install -r requirements.txt
 
-# Development server (hot reload on code changes)
+# Start backend (Terminal 1)
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
+
+# Start Streamlit app (Terminal 2)
+streamlit run streamlit_app.py
 ```
 
-### Frontend (React + Vite)
+Open `http://localhost:8501` in your browser.
+
+### Option 2: React Frontend (Development)
 
 ```bash
+# Backend (Terminal 1)
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+
+# Frontend (Terminal 2)
 cd frontend
 npm install
-
-# Development server (uses Vite proxy to talk to backend at http://localhost:8000)
 npm run dev
 ```
 
 Open `http://localhost:5173` in your browser.
+
+## Streamlit Cloud Deployment
+
+See [STREAMLIT_DEPLOY.md](STREAMLIT_DEPLOY.md) for detailed deployment instructions.
+
+Quick deploy:
+1. Push code to GitHub
+2. Go to [share.streamlit.io](https://share.streamlit.io)
+3. Connect repository
+4. Set main file: `streamlit_app.py`
+5. Add secret: `API_BASE_URL` = your backend URL
+6. Deploy!
 
 During development:
 - Frontend calls `/api/...` which Vite proxies to `http://localhost:8000`
