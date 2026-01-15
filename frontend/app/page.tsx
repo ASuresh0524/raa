@@ -46,6 +46,32 @@ export default function HomePage() {
     }
   }
 
+  const seedDemo = async () => {
+    try {
+      setLoading(true)
+      await api('/api/demo/seed', { method: 'POST' })
+      await refreshPassports()
+    } catch (e: any) {
+      setError(e.message || 'Failed to seed demo data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const runDemoWorkflow = async () => {
+    try {
+      setLoading(true)
+      const wf = await api<{ workflow_id: string }>('/api/demo/workflow', { method: 'POST' })
+      setWorkflowId(wf.workflow_id)
+      const status = await api('/api/workflow/' + wf.workflow_id)
+      setWorkflowStatus(status)
+    } catch (e: any) {
+      setError(e.message || 'Failed to run demo workflow')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const selectPassport = async (id: string) => {
     try {
       setLoading(true)
@@ -111,6 +137,14 @@ export default function HomePage() {
         <span className="pill">● Live Demo</span>
       </div>
 
+      {API_BASE.includes('localhost') && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && (
+        <div className="card" style={{ borderColor: 'rgba(245, 158, 11, 0.5)' }}>
+          <strong>Backend not connected.</strong> This site is running on Vercel, but it is still pointing to
+          <span className="muted"> {API_BASE}</span>. Set
+          <span className="muted"> NEXT_PUBLIC_API_BASE_URL</span> in Vercel to your deployed FastAPI URL.
+        </div>
+      )}
+
       {error && (
         <div className="card" style={{ borderColor: 'rgba(239,68,68,0.5)' }}>
           <strong>Error:</strong> {error}
@@ -124,6 +158,9 @@ export default function HomePage() {
           <div style={{ marginTop: 12 }}>
             <button className="button secondary" onClick={refreshPassports}>
               Refresh
+            </button>
+            <button className="button" style={{ marginLeft: 8 }} onClick={seedDemo}>
+              Seed Demo Passport
             </button>
           </div>
           <div className="list" style={{ marginTop: 16 }}>
@@ -164,6 +201,9 @@ export default function HomePage() {
                 </select>
                 <div style={{ marginTop: 14 }}>
                   <button className="button" onClick={startWorkflow}>Start Workflow</button>
+                  <button className="button secondary" style={{ marginLeft: 8 }} onClick={runDemoWorkflow}>
+                    Run Demo Workflow
+                  </button>
                 </div>
               </div>
             </div>
@@ -213,6 +253,39 @@ export default function HomePage() {
           )}
         </div>
       </div>
+
+      {workflowStatus && (
+        <div className="grid grid-2">
+          <div className="card">
+            <h3>Agent Task Runs</h3>
+            <div className="list" style={{ marginTop: 12 }}>
+              {(workflowStatus.task_runs || []).map((tr: any) => (
+                <div key={tr.task_run_id} className="list-item">
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{tr.agent_name}</div>
+                    <div className="muted">{tr.status}</div>
+                  </div>
+                  <span className="badge">{tr.completed_at ? 'done' : 'running'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="card">
+            <h3>Audit Trail (latest)</h3>
+            <div className="list" style={{ marginTop: 12 }}>
+              {(workflowStatus.audit_events || []).slice(0, 8).map((ev: any) => (
+                <div key={ev.event_id} className="list-item">
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{ev.action}</div>
+                    <div className="muted">{ev.actor}</div>
+                  </div>
+                  <span className="badge">{ev.created_at?.slice?.(0, 19) || ''}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && <div className="card">Loading…</div>}
     </div>

@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Query, Depends, Ba
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from . import agents
+from . import agents, data
 from .orchestrator import run_workflow
 from .database import get_db, init_db
 from .db_service import (
@@ -85,6 +85,20 @@ def list_all_passports(skip: int = 0, limit: int = 100, db: Session = Depends(ge
     """List all passports."""
     db_passports = list_passports(db, skip=skip, limit=limit)
     return [Passport(**p.passport_data) for p in db_passports]
+
+
+@app.post("/api/demo/seed", response_model=Passport)
+def seed_demo_passport(db: Session = Depends(get_db)) -> Passport:
+    """
+    Seed a demo passport for quick testing (architecture-aligned sample).
+    """
+    sample = data.create_sample_passport()
+    existing = get_passport_db(db, sample.clinician_id)
+    if existing:
+        update_passport(db, sample.clinician_id, sample)
+    else:
+        create_passport(db, sample)
+    return sample
 
 
 @app.get("/api/passport/{clinician_id}", response_model=PassportResponse)
@@ -178,6 +192,37 @@ def authorize_access(
     
     create_workflow(db, workflow)
     return workflow
+
+
+@app.post("/api/demo/workflow", response_model=Workflow)
+def demo_workflow_run(
+    destination_id: str = Query("demo-hospital"),
+    destination_type: str = Query("hospital"),
+    payer_name: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> Workflow:
+    """
+    Create + run a demo workflow for the sample passport.
+    """
+    sample = data.create_sample_passport()
+    existing = get_passport_db(db, sample.clinician_id)
+    if existing:
+        update_passport(db, sample.clinician_id, sample)
+    else:
+        create_passport(db, sample)
+
+    authorization = AuthorizationRequest(
+        destination_id=destination_id,
+        destination_type=destination_type,
+        scoped_permissions=[],
+    )
+    workflow = authorize_access(sample.clinician_id, authorization, db)
+    updated = run_workflow(db, workflow, sample, payer_name=payer_name)
+    wf_dump = updated.model_dump()
+    if getattr(updated, "_evidence_bundle", None):
+        wf_dump["evidence_bundle"] = getattr(updated, "_evidence_bundle")
+    updated_workflow(db, workflow.workflow_id, Workflow(**wf_dump))
+    return Workflow(**wf_dump)
 
 
 @app.post("/api/workflow/{workflow_id}/run", response_model=Workflow)
