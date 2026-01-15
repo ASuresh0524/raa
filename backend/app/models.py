@@ -261,6 +261,8 @@ class Workflow(BaseModel):
     eta: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    # Optional: audit-ready evidence bundle produced by Audit Trail Agent
+    evidence_bundle: Optional[dict] = None
 
 
 # Agent Outputs
@@ -300,6 +302,8 @@ class WorkflowStatusResponse(BaseModel):
     workflow: Workflow
     timeline: List[dict] = Field(default_factory=list)
     progress_percentage: float
+    task_runs: List[dict] = Field(default_factory=list)
+    audit_events: List[dict] = Field(default_factory=list)
 
 
 class AuthorizationRequest(BaseModel):

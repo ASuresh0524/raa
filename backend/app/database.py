@@ -1,7 +1,7 @@
 """
 Database models and session management for Credentialing Passport.
 """
-from sqlalchemy import create_engine, Column, String, DateTime, JSON, Boolean, Float, Integer
+from sqlalchemy import create_engine, Column, String, DateTime, JSON, Boolean, Float, Integer, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime
@@ -69,6 +69,37 @@ class VerificationDB(Base):
     result_data = Column(JSON)
     verified_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AuditEventDB(Base):
+    """Append-only audit log (who/what/when/source)."""
+    __tablename__ = "audit_events"
+
+    event_id = Column(String, primary_key=True, index=True)
+    workflow_id = Column(String, index=True)
+    clinician_id = Column(String, index=True)
+    actor = Column(String)  # agent:<name> | user:<id> | system
+    action = Column(String)  # e.g. "verification.requested", "document.extracted"
+    source = Column(String, nullable=True)  # external system / dataset / portal
+    details = Column(JSON, nullable=True)  # evidence, fields, urls, receipts
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class TaskRunDB(Base):
+    """Tracks each agent run for a workflow, for timeline/ETA/exceptions."""
+    __tablename__ = "task_runs"
+
+    task_run_id = Column(String, primary_key=True, index=True)
+    workflow_id = Column(String, index=True)
+    clinician_id = Column(String, index=True)
+    agent_name = Column(String, index=True)
+    status = Column(String, index=True)  # pending|running|completed|failed|exception
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    eta_seconds = Column(Integer, nullable=True)
+    exceptions = Column(JSON, nullable=True)
+    output = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
 def get_db() -> Session:

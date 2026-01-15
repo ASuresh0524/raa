@@ -6,11 +6,12 @@ from typing import List, Optional
 import uuid
 import os
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Query, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Query, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from . import agents
+from .orchestrator import run_workflow
 from .database import get_db, init_db
 from .db_service import (
     create_passport,
@@ -22,6 +23,8 @@ from .db_service import (
     update_workflow,
     list_workflows,
     save_document,
+    list_task_runs,
+    list_audit_events,
 )
 from .models import (
     Passport,
@@ -37,6 +40,11 @@ from .models import (
     AuthorizationRequest,
 )
 
+
+def updated_workflow(db: Session, workflow_id: str, workflow: Workflow) -> None:
+    """Persist updated workflow into DB (helper)."""
+    update_workflow(db, workflow_id, workflow)
+
 app = FastAPI(
     title="Credentialing Passport API",
     description="Universal clinician credentialing and enrollment platform",
@@ -51,7 +59,13 @@ def startup_event():
 # Allow local dev frontends to communicate with the API.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "*"],  # Allow all in dev
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8501",
+        "http://127.0.0.1:8501",
+        "*",
+    ],  # Allow all in dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -164,6 +178,38 @@ def authorize_access(
     return workflow
 
 
+@app.post("/api/workflow/{workflow_id}/run", response_model=Workflow)
+def run_workflow_now(
+    workflow_id: str,
+    background: BackgroundTasks,
+    payer_name: str | None = None,
+    db: Session = Depends(get_db),
+) -> Workflow:
+    """
+    Trigger the Workflow Orchestrator Agent execution.
+    For demo: runs synchronously unless background execution is desired.
+    """
+    db_wf = get_workflow_db(db, workflow_id)
+    if not db_wf:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    db_passport = get_passport_db(db, db_wf.clinician_id)
+    if not db_passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+
+    workflow = Workflow(**db_wf.workflow_data)
+    passport = Passport(**db_passport.passport_data)
+
+    # Run in-process (fast demo). You can switch to background for long workflows.
+    updated = run_workflow(db, workflow, passport, payer_name=payer_name)
+    # Persist updated workflow_data + evidence bundle
+    wf_dump = updated.model_dump()
+    if getattr(updated, "_evidence_bundle", None):
+        wf_dump["evidence_bundle"] = getattr(updated, "_evidence_bundle")
+    updated_workflow(db, workflow_id, Workflow(**wf_dump))
+    return Workflow(**wf_dump)
+
+
 @app.get("/api/workflows", response_model=List[Workflow])
 def list_all_workflows(
     clinician_id: Optional[str] = None,
@@ -201,10 +247,37 @@ def get_workflow_status(workflow_id: str, db: Session = Depends(get_db)) -> Work
             "completed_at": step.completed_at.isoformat() if step.completed_at else None,
         })
     
+    task_runs = [
+        {
+            "task_run_id": tr.task_run_id,
+            "agent_name": tr.agent_name,
+            "status": tr.status,
+            "started_at": tr.started_at.isoformat() if tr.started_at else None,
+            "completed_at": tr.completed_at.isoformat() if tr.completed_at else None,
+            "output": tr.output,
+            "exceptions": tr.exceptions,
+        }
+        for tr in list_task_runs(db, workflow_id)
+    ]
+
+    audit_events = [
+        {
+            "event_id": e.event_id,
+            "actor": e.actor,
+            "action": e.action,
+            "source": e.source,
+            "details": e.details,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+        }
+        for e in list_audit_events(db, workflow_id=workflow_id)
+    ]
+
     return WorkflowStatusResponse(
         workflow=workflow,
         timeline=timeline,
         progress_percentage=progress_percentage,
+        task_runs=task_runs,
+        audit_events=audit_events,
     )
 
 

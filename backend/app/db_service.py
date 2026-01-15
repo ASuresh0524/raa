@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 import uuid
 
-from .database import PassportDB, WorkflowDB, DocumentDB, VerificationDB
+from .database import PassportDB, WorkflowDB, DocumentDB, VerificationDB, AuditEventDB, TaskRunDB
 from .models import Passport, Workflow
 
 
@@ -115,4 +115,86 @@ def save_document(
     db.commit()
     db.refresh(db_document)
     return db_document
+
+
+def add_audit_event(
+    db: Session,
+    event_id: str,
+    workflow_id: str | None,
+    clinician_id: str,
+    actor: str,
+    action: str,
+    source: str | None,
+    details: dict | None,
+) -> AuditEventDB:
+    db_event = AuditEventDB(
+        event_id=event_id,
+        workflow_id=workflow_id,
+        clinician_id=clinician_id,
+        actor=actor,
+        action=action,
+        source=source,
+        details=details,
+        created_at=datetime.utcnow(),
+    )
+    db.add(db_event)
+    db.commit()
+    db.refresh(db_event)
+    return db_event
+
+
+def list_audit_events(db: Session, workflow_id: str | None = None, clinician_id: str | None = None, limit: int = 200):
+    q = db.query(AuditEventDB)
+    if workflow_id:
+        q = q.filter(AuditEventDB.workflow_id == workflow_id)
+    if clinician_id:
+        q = q.filter(AuditEventDB.clinician_id == clinician_id)
+    return q.order_by(AuditEventDB.created_at.desc()).limit(limit).all()
+
+
+def create_task_run(
+    db: Session,
+    task_run_id: str,
+    workflow_id: str,
+    clinician_id: str,
+    agent_name: str,
+    status: str = "pending",
+) -> TaskRunDB:
+    tr = TaskRunDB(
+        task_run_id=task_run_id,
+        workflow_id=workflow_id,
+        clinician_id=clinician_id,
+        agent_name=agent_name,
+        status=status,
+        created_at=datetime.utcnow(),
+    )
+    db.add(tr)
+    db.commit()
+    db.refresh(tr)
+    return tr
+
+
+def update_task_run(
+    db: Session,
+    task_run_id: str,
+    **fields,
+) -> TaskRunDB | None:
+    tr = db.query(TaskRunDB).filter(TaskRunDB.task_run_id == task_run_id).first()
+    if not tr:
+        return None
+    for k, v in fields.items():
+        setattr(tr, k, v)
+    db.commit()
+    db.refresh(tr)
+    return tr
+
+
+def list_task_runs(db: Session, workflow_id: str, limit: int = 200):
+    return (
+        db.query(TaskRunDB)
+        .filter(TaskRunDB.workflow_id == workflow_id)
+        .order_by(TaskRunDB.created_at.asc())
+        .limit(limit)
+        .all()
+    )
 

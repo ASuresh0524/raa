@@ -237,7 +237,14 @@ def main():
         st.header("Navigation")
         page = st.radio(
             "Select Page",
-            ["📋 Passport List", "➕ Create Passport", "👤 View Passport", "🔄 Workflows", "📊 Quality Reports"],
+            [
+                "📋 Passport List",
+                "➕ Create Passport",
+                "👤 View Passport",
+                "🏥 Organization View",
+                "🔄 Workflows",
+                "📊 Quality Reports",
+            ],
             key="nav_page"
         )
         st.markdown("---")
@@ -491,9 +498,77 @@ def main():
                         if workflow:
                             st.success("✅ Workflow started successfully!")
                             st.session_state.workflow_data = workflow
+                            # Kick orchestrator run (end-to-end agents)
+                            api_request("POST", f"/api/workflow/{workflow.get('workflow_id')}/run")
                             st.rerun()
                     else:
                         st.error("Please enter a destination ID")
+
+    # Organization View
+    elif page == "🏥 Organization View":
+        st.header("Organization Dashboard")
+        st.caption("Review exceptions (not raw paperwork). Track ETA, tasks, and download evidence bundle.")
+
+        workflow_id = st.text_input("Workflow ID", placeholder="wf-xxxxx")
+        colA, colB = st.columns([1, 1])
+        with colA:
+            refresh = st.button("🔄 Refresh Status")
+        with colB:
+            auto_refresh = st.checkbox("Auto-refresh (10s)", value=False)
+
+        if auto_refresh:
+            st.caption("Auto-refresh enabled. This will refresh the page every 10 seconds.")
+            st.experimental_set_query_params(_ts=str(int(datetime.utcnow().timestamp())))
+            st.sleep(10)
+            st.rerun()
+
+        if workflow_id and (refresh or True):
+            wf_status = api_request("GET", f"/api/workflow/{workflow_id}")
+            if wf_status:
+                wf = wf_status.get("workflow", {})
+                progress = wf_status.get("progress_percentage", 0)
+                st.subheader(f"Workflow: {wf.get('workflow_id')}")
+                st.progress(progress / 100)
+                st.write(f"**Destination:** {wf.get('destination_id')} ({wf.get('destination_type')})")
+                st.write(f"**Overall Status:** {wf.get('status')}")
+
+                exceptions = wf.get("exceptions") or []
+                if exceptions:
+                    st.warning("Exceptions")
+                    for e in exceptions:
+                        st.write(f"- {e}")
+                else:
+                    st.success("No exceptions currently flagged.")
+
+                st.markdown("### Live Status Timeline")
+                timeline = wf_status.get("timeline", [])
+                for t in timeline:
+                    st.write(f"- **{t.get('agent_name')}**: {t.get('status')} (start: {t.get('started_at')}, end: {t.get('completed_at')})")
+
+                st.markdown("### Agent Task Runs")
+                for tr in wf_status.get("task_runs", []):
+                    with st.expander(f"{tr.get('agent_name')} — {tr.get('status')}"):
+                        st.json(tr.get("output") or {})
+                        if tr.get("exceptions"):
+                            st.warning("Exception payload")
+                            st.json(tr.get("exceptions"))
+
+                st.markdown("### Audit Trail (most recent)")
+                for ev in wf_status.get("audit_events", [])[:25]:
+                    st.write(f"- `{ev.get('created_at')}` **{ev.get('actor')}** → {ev.get('action')}")
+
+                # Evidence bundle download
+                evidence = wf.get("evidence_bundle")
+                if evidence:
+                    st.markdown("### Evidence Bundle")
+                    st.download_button(
+                        "⬇️ Download Evidence Bundle (JSON)",
+                        data=json.dumps(evidence, indent=2),
+                        file_name=f"evidence-{workflow_id}.json",
+                        mime="application/json",
+                    )
+                else:
+                    st.info("Evidence bundle not available yet. Run the workflow to generate it.")
 
     # Workflows Page
     elif page == "🔄 Workflows":

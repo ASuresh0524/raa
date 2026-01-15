@@ -2,7 +2,9 @@
 Credentialing Passport agents that process passport data and execute workflows.
 """
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Tuple, Dict, Any
+
+import requests
 
 from .models import (
     Passport,
@@ -439,3 +441,122 @@ def generate_workflow_steps(
     )
 
     return steps
+
+
+# ----------------------------
+# Additional agents per architecture.md
+# ----------------------------
+
+def intake_concierge_questions(requirements: RequirementsChecklist) -> list[dict]:
+    """
+    Provider Intake Concierge Agent
+    Produces targeted questions/asks based on true gaps.
+    """
+    asks: list[dict] = []
+    for r in requirements.requirements:
+        if r.status != "complete" and r.required:
+            asks.append(
+                {
+                    "requirement_id": r.requirement_id,
+                    "category": r.category,
+                    "ask": f"Please provide: {r.description}",
+                    "priority": "high",
+                }
+            )
+    return asks
+
+
+def document_ingestion_extract_stub(
+    file_name: str,
+    document_type: str,
+) -> dict:
+    """
+    Document Ingestion & Data Extraction Agent (stub)
+    In production: OCR/PDF parsing + field provenance mapping.
+    Here: returns minimal structured extraction + provenance envelope.
+    """
+    extracted = {
+        "document_type": document_type,
+        "file_name": file_name,
+        "fields": {},
+        "provenance": {
+            "artifact": file_name,
+            "extracted_at": datetime.utcnow().isoformat(),
+            "method": "stub",
+        },
+    }
+    return extracted
+
+
+def primary_source_verify_nppes(npi: str, timeout_s: int = 10) -> dict:
+    """
+    Primary Source Verification Agent (partial)
+    Real call to NPPES NPI Registry public API.
+    """
+    # https://npiregistry.cms.hhs.gov/api-page
+    url = "https://npiregistry.cms.hhs.gov/api/"
+    params = {"number": npi, "version": "2.1"}
+    resp = requests.get(url, params=params, timeout=timeout_s)
+    resp.raise_for_status()
+    data = resp.json()
+    return {
+        "source": "NPPES NPI Registry API",
+        "query": {"npi": npi},
+        "result": data,
+        "retrieved_at": datetime.utcnow().isoformat(),
+        "citation_url": "https://npiregistry.cms.hhs.gov/api-page",
+    }
+
+
+def payer_enrollment_submission_stub(payer_name: str) -> dict:
+    """
+    Payer Enrollment Submission Agent (stub)
+    In production: generate CMS-855/CAQH + portal submission with receipts.
+    """
+    return {
+        "payer_name": payer_name,
+        "status": "submitted",
+        "submitted_at": datetime.utcnow().isoformat(),
+        "receipt": {"type": "stub", "id": f"receipt-{int(datetime.utcnow().timestamp())}"},
+    }
+
+
+def billing_scheduling_guardrails_stub() -> dict:
+    """
+    Billing & Scheduling Guardrail Agent (stub)
+    In production: compute earliest safe start date by site/payer based on effective dates.
+    """
+    now = datetime.utcnow()
+    return {
+        "generated_at": now.isoformat(),
+        "rules": [
+            {"scope": "all", "can_schedule": False, "reason": "Awaiting payer effective dates"},
+        ],
+        "earliest_safe_start_date": (now + timedelta(days=30)).date().isoformat(),
+    }
+
+
+def build_evidence_bundle(
+    passport: Passport,
+    requirements: RequirementsChecklist,
+    quality: QualityReport,
+    verifications: list[dict],
+    submissions: list[dict],
+) -> dict:
+    """
+    Audit Trail Agent
+    Produces an audit-ready evidence bundle with provenance.
+    """
+    return {
+        "generated_at": datetime.utcnow().isoformat(),
+        "passport_snapshot": passport.model_dump(),
+        "requirements": requirements.model_dump(),
+        "quality_report": quality.model_dump(),
+        "verifications": verifications,
+        "submissions": submissions,
+        "citations": [
+            {"name": "NPPES NPI Registry API", "url": "https://npiregistry.cms.hhs.gov/api-page"},
+            {"name": "NPPES Bulk Files", "url": "https://download.cms.gov/nppes/NPI_Files.html"},
+            {"name": "NUCC Taxonomy", "url": "https://nucc.org/images/stories/CSV/nucc_taxonomy_231.csv"},
+        ],
+    }
