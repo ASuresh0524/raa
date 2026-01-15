@@ -62,14 +62,17 @@ export default function HomePage() {
     if (!selected || !destinationId) return
     try {
       setLoading(true)
-      const wf = await api('/api/passport/' + selected.clinician_id + '/authorize', {
+      const wf = await api<{ workflow_id: string }>(
+        '/api/passport/' + selected.clinician_id + '/authorize',
+        {
         method: 'POST',
         body: JSON.stringify({
           destination_id: destinationId,
           destination_type: destinationType,
           scoped_permissions: [],
         }),
-      })
+        },
+      )
       await api('/api/workflow/' + wf.workflow_id + '/run', { method: 'POST' })
       setWorkflowId(wf.workflow_id)
       const status = await api('/api/workflow/' + wf.workflow_id)
@@ -215,4 +218,5 @@ export default function HomePage() {
     </div>
   )
 }
+
 
