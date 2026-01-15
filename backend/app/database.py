@@ -8,7 +8,8 @@ from datetime import datetime
 import os
 
 # Use SQLite for development, PostgreSQL for production
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./credentialing_passport.db")
+# Render may set DATABASE_URL as empty string, so guard with "or".
+DATABASE_URL = os.getenv("DATABASE_URL") or "sqlite:///./credentialing_passport.db"
 
 engine = create_engine(
     DATABASE_URL,
