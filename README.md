@@ -46,32 +46,11 @@ Credentialing Passport is a production-ready web application that enables clinic
 ## Prerequisites
 
 - **Python 3.10+**
-- **Node.js 16+** (Vite 4 compatible)
+- **Node.js 18+** (Next.js / Vercel)
 - **SQLite** (included, used for development)
 - **PostgreSQL** (optional, for production - set DATABASE_URL environment variable)
 
-## Quick Start
-
-### Option 1: Streamlit App (Recommended for Deployment)
-
-```bash
-# Install Streamlit dependencies
-pip install -r requirements.txt
-
-# Start backend (Terminal 1)
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-
-# Start Streamlit app (Terminal 2)
-streamlit run streamlit_app.py
-```
-
-Open `http://localhost:8501` in your browser.
-
-### Option 2: React Frontend (Development)
+## Quick Start (Local)
 
 ```bash
 # Backend (Terminal 1)
@@ -87,23 +66,27 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser.
-
-## Streamlit Cloud Deployment
-
-See [STREAMLIT_DEPLOY.md](STREAMLIT_DEPLOY.md) for detailed deployment instructions.
-
-Quick deploy:
-1. Push code to GitHub
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Connect repository
-4. Set main file: `streamlit_app.py`
-5. Add secret: `API_BASE_URL` = your backend URL
-6. Deploy!
+Open `http://localhost:3000` in your browser.
 
 During development:
-- Frontend calls `/api/...` which Vite proxies to `http://localhost:8000`
-- Backend CORS is configured to allow `http://localhost:5173`
+- Frontend reads `NEXT_PUBLIC_API_BASE_URL` (defaults to `http://localhost:8000`)
+- Backend CORS allows local + Vercel domains
+
+## Vercel Deployment (Public Link)
+
+1. Push this repo to GitHub
+2. Create a Vercel project and select this repo
+3. In Vercel, set **Root Directory** to `frontend`
+4. Add environment variable:
+   - `NEXT_PUBLIC_API_BASE_URL` = your deployed FastAPI URL
+5. Deploy. Vercel will give you a public `https://...vercel.app` link
+
+See `DEPLOY_VERCEL.md` for full instructions.
+
+## Backend Deployment
+
+Deploy the FastAPI backend separately (Render, Railway, Fly.io).
+Set the `NEXT_PUBLIC_API_BASE_URL` in Vercel to that backend URL.
 
 ## API Endpoints
 

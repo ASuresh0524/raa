@@ -30,6 +30,7 @@ yarn-error.log*
 .pnpm-debug.log*
 dist/
 .vite/
+.next/
 
 # IDE
 .vscode/
@@ -46,9 +47,6 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
-
-# Streamlit
-.streamlit/secrets.toml
 
 # Logs
 *.log
