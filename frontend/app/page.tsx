@@ -5,10 +5,10 @@ import { useEffect, useMemo, useState } from 'react'
 type Passport = any
 type WorkflowStatus = any
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${path.startsWith('/api') ? path : `/api${path}`}`, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
   })
@@ -137,10 +137,9 @@ export default function HomePage() {
         <span className="pill">● Live Demo</span>
       </div>
 
-      {API_BASE.includes('localhost') && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && (
+      {!API_BASE && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && (
         <div className="card" style={{ borderColor: 'rgba(245, 158, 11, 0.5)' }}>
-          <strong>Backend not connected.</strong> This site is running on Vercel, but it is still pointing to
-          <span className="muted"> {API_BASE}</span>. Set
+          <strong>Backend not connected.</strong> This site is running on Vercel, but no backend URL is configured. Set
           <span className="muted"> NEXT_PUBLIC_API_BASE_URL</span> in Vercel to your deployed FastAPI URL.
         </div>
       )}
