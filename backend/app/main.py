@@ -92,13 +92,16 @@ def seed_demo_passport(db: Session = Depends(get_db)) -> Passport:
     """
     Seed a demo passport for quick testing (architecture-aligned sample).
     """
-    sample = data.create_sample_passport()
-    existing = get_passport_db(db, sample.clinician_id)
-    if existing:
-        update_passport(db, sample.clinician_id, sample)
-    else:
-        create_passport(db, sample)
-    return sample
+    try:
+        sample = data.create_sample_passport()
+        existing = get_passport_db(db, sample.clinician_id)
+        if existing:
+            update_passport(db, sample.clinician_id, sample)
+        else:
+            create_passport(db, sample)
+        return sample
+    except Exception as e:  # noqa: BLE001 - surface error for deploy diagnostics
+        raise HTTPException(status_code=500, detail=f"Seed failed: {e}")
 
 
 @app.get("/api/passport/{clinician_id}", response_model=PassportResponse)
@@ -204,25 +207,28 @@ def demo_workflow_run(
     """
     Create + run a demo workflow for the sample passport.
     """
-    sample = data.create_sample_passport()
-    existing = get_passport_db(db, sample.clinician_id)
-    if existing:
-        update_passport(db, sample.clinician_id, sample)
-    else:
-        create_passport(db, sample)
+    try:
+        sample = data.create_sample_passport()
+        existing = get_passport_db(db, sample.clinician_id)
+        if existing:
+            update_passport(db, sample.clinician_id, sample)
+        else:
+            create_passport(db, sample)
 
-    authorization = AuthorizationRequest(
-        destination_id=destination_id,
-        destination_type=destination_type,
-        scoped_permissions=[],
-    )
-    workflow = authorize_access(sample.clinician_id, authorization, db)
-    updated = run_workflow(db, workflow, sample, payer_name=payer_name)
-    wf_dump = updated.model_dump()
-    if getattr(updated, "_evidence_bundle", None):
-        wf_dump["evidence_bundle"] = getattr(updated, "_evidence_bundle")
-    updated_workflow(db, workflow.workflow_id, Workflow(**wf_dump))
-    return Workflow(**wf_dump)
+        authorization = AuthorizationRequest(
+            destination_id=destination_id,
+            destination_type=destination_type,
+            scoped_permissions=[],
+        )
+        workflow = authorize_access(sample.clinician_id, authorization, db)
+        updated = run_workflow(db, workflow, sample, payer_name=payer_name)
+        wf_dump = updated.model_dump()
+        if getattr(updated, "_evidence_bundle", None):
+            wf_dump["evidence_bundle"] = getattr(updated, "_evidence_bundle")
+        updated_workflow(db, workflow.workflow_id, Workflow(**wf_dump))
+        return Workflow(**wf_dump)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Demo workflow failed: {e}")
 
 
 @app.post("/api/workflow/{workflow_id}/run", response_model=Workflow)
