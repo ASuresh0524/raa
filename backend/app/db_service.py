@@ -14,7 +14,7 @@ def create_passport(db: Session, passport: Passport) -> PassportDB:
     """Create a new passport in the database."""
     db_passport = PassportDB(
         clinician_id=passport.clinician_id,
-        passport_data=passport.model_dump(),
+        passport_data=passport.model_dump(mode="json"),
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
@@ -35,7 +35,7 @@ def update_passport(db: Session, clinician_id: str, passport: Passport) -> Optio
     if not db_passport:
         return None
     
-    db_passport.passport_data = passport.model_dump()
+    db_passport.passport_data = passport.model_dump(mode="json")
     db_passport.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_passport)
@@ -55,7 +55,7 @@ def create_workflow(db: Session, workflow: Workflow) -> WorkflowDB:
         destination_id=workflow.destination_id,
         destination_type=workflow.destination_type,
         status=workflow.status.value,
-        workflow_data=workflow.model_dump(),
+        workflow_data=workflow.model_dump(mode="json"),
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
@@ -77,7 +77,7 @@ def update_workflow(db: Session, workflow_id: str, workflow: Workflow) -> Option
         return None
     
     db_workflow.status = workflow.status.value
-    db_workflow.workflow_data = workflow.model_dump()
+    db_workflow.workflow_data = workflow.model_dump(mode="json")
     db_workflow.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_workflow)

@@ -137,7 +137,7 @@ export default function HomePage() {
         <span className="pill">● Live Demo</span>
       </div>
 
-      {!API_BASE && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && (
+      {API_BASE.includes('localhost') && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && (
         <div className="card" style={{ borderColor: 'rgba(245, 158, 11, 0.5)' }}>
           <strong>Backend not connected.</strong> This site is running on Vercel, but no backend URL is configured. Set
           <span className="muted"> NEXT_PUBLIC_API_BASE_URL</span> in Vercel to your deployed FastAPI URL.
@@ -218,7 +218,9 @@ export default function HomePage() {
             <label className="label">Workflow ID</label>
             <input className="input" value={workflowId} onChange={(e) => setWorkflowId(e.target.value)} placeholder="wf-..." />
             <div style={{ marginTop: 12 }}>
-              <button className="button secondary" onClick={refreshWorkflow}>Refresh Status</button>
+              <button className="button secondary" onClick={refreshWorkflow} disabled={!workflowId}>
+                Refresh Status
+              </button>
             </div>
           </div>
           {workflowStatus && (
