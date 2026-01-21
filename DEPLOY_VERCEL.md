@@ -18,9 +18,10 @@ https://your-backend.example.com/api/ping
 1. Push this repo to GitHub.
 2. In Vercel, import the repo.
 3. Set **Root Directory** = `frontend`.
-4. Add environment variable:
+4. Framework preset: **Next.js** (auto-detected)
+5. Add environment variable:
    - `NEXT_PUBLIC_API_BASE_URL` = `https://your-backend.example.com`
-5. Deploy.
+6. Deploy.
 
 Vercel will give you a public URL:
 ```

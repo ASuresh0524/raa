@@ -2,13 +2,12 @@
 
 ## Overview
 
-The Credentialing Passport system is now production-ready with:
+The Credentialing Passport system is production-ready with:
 - ✅ Database persistence (SQLite for dev, PostgreSQL for production)
-- ✅ Professional UI with passport management
-- ✅ No hardcoded data
+- ✅ Next.js frontend for Vercel
 - ✅ Full CRUD operations
 - ✅ Agent-based workflow orchestration
-- ✅ Document upload and management
+- ✅ Document upload and audit trail
 
 ## Key Features
 
@@ -19,11 +18,9 @@ The Credentialing Passport system is now production-ready with:
 - **File Storage**: Secure document upload and storage
 
 ### Frontend
-- **Modern UI**: Professional, clean interface similar to Medallion
+- **Next.js**: Vercel-ready, edge‑friendly UI
 - **Passport Management**: Create, view, edit passports
-- **Workflow Tracking**: Real-time workflow status and progress
-- **Quality Reports**: Data quality validation and issue detection
-- **Requirements**: Destination-specific requirement checklists
+- **Workflow Tracking**: Status, task runs, audit trail, evidence bundle
 
 ## Deployment Steps
 
@@ -57,18 +54,9 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Build for production
 npm run build
-
-# Preview production build
-npm run preview
-
-# Or serve with a static file server
-# The dist/ folder contains the production build
+npm run start
 ```
 
 ### 3. Production Considerations

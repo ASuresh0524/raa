@@ -83,6 +83,13 @@ During development:
 
 See `DEPLOY_VERCEL.md` for full instructions.
 
+## Troubleshooting
+
+- If you see “Failed to fetch” on Vercel, ensure:
+  - Backend is live: `https://<backend>/api/ping`
+  - Vercel env var: `NEXT_PUBLIC_API_BASE_URL=https://<backend>`
+  - Redeploy after changing env vars
+
 ## Backend Deployment
 
 Deploy the FastAPI backend separately (Render, Railway, Fly.io).
