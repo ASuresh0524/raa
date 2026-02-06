@@ -88,6 +88,7 @@ def list_all_passports(skip: int = 0, limit: int = 100, db: Session = Depends(ge
 
 
 @app.post("/api/demo/seed", response_model=Passport)
+@app.get("/api/demo/seed", response_model=Passport)
 def seed_demo_passport(db: Session = Depends(get_db)) -> Passport:
     """
     Seed a demo passport for quick testing (architecture-aligned sample).
@@ -198,6 +199,7 @@ def authorize_access(
 
 
 @app.post("/api/demo/workflow", response_model=Workflow)
+@app.get("/api/demo/workflow", response_model=Workflow)
 def demo_workflow_run(
     destination_id: str = Query("demo-hospital"),
     destination_type: str = Query("hospital"),
@@ -207,6 +209,7 @@ def demo_workflow_run(
     """
     Create + run a demo workflow for the sample passport.
     """
+
     try:
         sample = data.create_sample_passport()
         existing = get_passport_db(db, sample.clinician_id)
@@ -222,7 +225,7 @@ def demo_workflow_run(
         )
         workflow = authorize_access(sample.clinician_id, authorization, db)
         updated = run_workflow(db, workflow, sample, payer_name=payer_name)
-        wf_dump = updated.model_dump()
+        wf_dump = updated.model_dump(mode="json")
         if getattr(updated, "_evidence_bundle", None):
             wf_dump["evidence_bundle"] = getattr(updated, "_evidence_bundle")
         updated_workflow(db, workflow.workflow_id, Workflow(**wf_dump))
@@ -256,7 +259,7 @@ def run_workflow_now(
     # Run in-process (fast demo). You can switch to background for long workflows.
     updated = run_workflow(db, workflow, passport, payer_name=payer_name)
     # Persist updated workflow_data + evidence bundle
-    wf_dump = updated.model_dump()
+    wf_dump = updated.model_dump(mode="json")
     if getattr(updated, "_evidence_bundle", None):
         wf_dump["evidence_bundle"] = getattr(updated, "_evidence_bundle")
     updated_workflow(db, workflow_id, Workflow(**wf_dump))

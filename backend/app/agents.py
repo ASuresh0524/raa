@@ -549,9 +549,9 @@ def build_evidence_bundle(
     """
     return {
         "generated_at": datetime.utcnow().isoformat(),
-        "passport_snapshot": passport.model_dump(),
-        "requirements": requirements.model_dump(),
-        "quality_report": quality.model_dump(),
+        "passport_snapshot": passport.model_dump(mode="json"),
+        "requirements": requirements.model_dump(mode="json"),
+        "quality_report": quality.model_dump(mode="json"),
         "verifications": verifications,
         "submissions": submissions,
         "citations": [
