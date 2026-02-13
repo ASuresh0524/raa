@@ -54,7 +54,11 @@ app = FastAPI(
 # Initialize database on startup
 @app.on_event("startup")
 def startup_event():
-    init_db()
+    try:
+        init_db()
+    except Exception as e:  # noqa: BLE001 - surface startup errors in Render logs
+        print(f"Database init failed: {e}")
+        raise
 
 # Allow local dev frontends to communicate with the API.
 app.add_middleware(

@@ -7,9 +7,16 @@ from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime
 import os
 
-# Use SQLite for development, PostgreSQL for production
+# Use SQLite for development, PostgreSQL for production.
 # Render may set DATABASE_URL as empty string, so guard with "or".
-DATABASE_URL = os.getenv("DATABASE_URL") or "sqlite:///./credentialing_passport.db"
+DATABASE_URL = os.getenv("DATABASE_URL") or "sqlite:////tmp/credentialing_passport.db"
+
+if DATABASE_URL.startswith("sqlite:////"):
+    # Ensure the sqlite directory exists (e.g., /tmp in Render).
+    sqlite_path = DATABASE_URL.replace("sqlite:////", "/")
+    sqlite_dir = os.path.dirname(sqlite_path)
+    if sqlite_dir and not os.path.exists(sqlite_dir):
+        os.makedirs(sqlite_dir, exist_ok=True)
 
 engine = create_engine(
     DATABASE_URL,
