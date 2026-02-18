@@ -6,15 +6,21 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 import uuid
 
+from fastapi.encoders import jsonable_encoder
 from .database import PassportDB, WorkflowDB, DocumentDB, VerificationDB, AuditEventDB, TaskRunDB
 from .models import Passport, Workflow
+
+
+def _json(payload):
+    """Ensure JSON-serializable payloads for DB storage."""
+    return jsonable_encoder(payload)
 
 
 def create_passport(db: Session, passport: Passport) -> PassportDB:
     """Create a new passport in the database."""
     db_passport = PassportDB(
         clinician_id=passport.clinician_id,
-        passport_data=passport.model_dump(mode="json"),
+        passport_data=_json(passport.model_dump()),
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
@@ -35,7 +41,7 @@ def update_passport(db: Session, clinician_id: str, passport: Passport) -> Optio
     if not db_passport:
         return None
     
-    db_passport.passport_data = passport.model_dump(mode="json")
+    db_passport.passport_data = _json(passport.model_dump())
     db_passport.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_passport)
@@ -55,7 +61,7 @@ def create_workflow(db: Session, workflow: Workflow) -> WorkflowDB:
         destination_id=workflow.destination_id,
         destination_type=workflow.destination_type,
         status=workflow.status.value,
-        workflow_data=workflow.model_dump(mode="json"),
+        workflow_data=_json(workflow.model_dump()),
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
@@ -77,7 +83,7 @@ def update_workflow(db: Session, workflow_id: str, workflow: Workflow) -> Option
         return None
     
     db_workflow.status = workflow.status.value
-    db_workflow.workflow_data = workflow.model_dump(mode="json")
+    db_workflow.workflow_data = _json(workflow.model_dump())
     db_workflow.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_workflow)
