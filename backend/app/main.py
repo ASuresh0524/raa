@@ -7,6 +7,7 @@ import uuid
 import os
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Query, Depends, BackgroundTasks
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -229,9 +230,9 @@ def demo_workflow_run(
         )
         workflow = authorize_access(sample.clinician_id, authorization, db)
         updated = run_workflow(db, workflow, sample, payer_name=payer_name)
-        wf_dump = updated.model_dump(mode="json")
+        wf_dump = jsonable_encoder(updated.model_dump())
         if getattr(updated, "_evidence_bundle", None):
-            wf_dump["evidence_bundle"] = getattr(updated, "_evidence_bundle")
+            wf_dump["evidence_bundle"] = jsonable_encoder(getattr(updated, "_evidence_bundle"))
         updated_workflow(db, workflow.workflow_id, Workflow(**wf_dump))
         return Workflow(**wf_dump)
     except Exception as e:  # noqa: BLE001
@@ -263,9 +264,9 @@ def run_workflow_now(
     # Run in-process (fast demo). You can switch to background for long workflows.
     updated = run_workflow(db, workflow, passport, payer_name=payer_name)
     # Persist updated workflow_data + evidence bundle
-    wf_dump = updated.model_dump(mode="json")
+    wf_dump = jsonable_encoder(updated.model_dump())
     if getattr(updated, "_evidence_bundle", None):
-        wf_dump["evidence_bundle"] = getattr(updated, "_evidence_bundle")
+        wf_dump["evidence_bundle"] = jsonable_encoder(getattr(updated, "_evidence_bundle"))
     updated_workflow(db, workflow_id, Workflow(**wf_dump))
     return Workflow(**wf_dump)
 
