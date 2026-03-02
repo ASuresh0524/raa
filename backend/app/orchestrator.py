@@ -170,6 +170,27 @@ def run_workflow(db: Session, workflow: Workflow, passport: Passport, payer_name
                 details={"task_run_id": tid, "status": mapped_status},
             )
 
+    # Update workflow steps based on task runs (aligns UI with actual agent statuses)
+    step_map = {s.agent_name: s for s in workflow.steps}
+    for agent_name, tid in task_run_ids.items():
+        tr = update_task_run(db, tid)  # latest persisted state
+        if not tr:
+            continue
+        step = step_map.get(agent_name)
+        if not step:
+            continue
+        if tr.status == "completed":
+            step.status = WorkflowStatus.COMPLETED
+        elif tr.status == "running":
+            step.status = WorkflowStatus.IN_PROGRESS
+        elif tr.status == "failed":
+            step.status = WorkflowStatus.REJECTED
+        elif tr.status == "exception":
+            step.status = WorkflowStatus.PENDING_REVIEW
+            step.exception_reason = "Exception flagged; review required."
+        step.started_at = tr.started_at
+        step.completed_at = tr.completed_at
+
     # Evidence bundle (audit-ready)
     requirements = agents.generate_requirements_checklist(workflow.destination_id, workflow.destination_type, passport)
     quality_report = agents.generate_quality_report(passport)
@@ -188,6 +209,8 @@ def run_workflow(db: Session, workflow: Workflow, passport: Passport, payer_name
 
     workflow.exceptions = exceptions
     workflow.status = WorkflowStatus.COMPLETED if not exceptions else WorkflowStatus.PENDING_REVIEW
+    # Simple ETA: none once completed, otherwise 15 minutes from now
+    workflow.eta = None if workflow.status == WorkflowStatus.COMPLETED else (datetime.utcnow() + timedelta(minutes=15))
     workflow.updated_at = datetime.utcnow()
 
     add_audit_event(
