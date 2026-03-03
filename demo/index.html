@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Credentialing Passport – HTML Demo</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --panel: #0f172a;
+        --card: #101b33;
+        --border: rgba(148, 163, 184, 0.25);
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --accent: #3b82f6;
+        --accent-2: #6366f1;
+        --success: #22c55e;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top left, #0f172a 0, #020617 60%, #020617 100%);
+        color: var(--text);
+      }
+      .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
+      .hero {
+        background: linear-gradient(135deg, #0f172a, #020617);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 22px 26px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.85);
+      }
+      .hero h1 { font-size: 22px; margin-bottom: 4px; }
+      .hero p { color: var(--muted); font-size: 14px; }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(34, 197, 94, 0.5);
+        color: #86efac;
+        background: rgba(34, 197, 94, 0.1);
+      }
+      .grid { display: grid; gap: 18px; margin-top: 22px; }
+      .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.75);
+      }
+      .card h3 { font-size: 16px; margin-bottom: 10px; }
+      .muted { color: var(--muted); font-size: 13px; }
+      .button {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: white; border: none; border-radius: 999px;
+        padding: 8px 14px; font-weight: 600; cursor: pointer;
+      }
+      .button.secondary {
+        background: rgba(148, 163, 184, 0.2);
+        border: 1px solid rgba(148, 163, 184, 0.5);
+      }
+      .input, .select {
+        width: 100%; padding: 10px 12px; border-radius: 10px;
+        border: 1px solid var(--border); background: rgba(2, 6, 23, 0.6); color: var(--text);
+      }
+      .label { font-size: 12px; color: var(--muted); margin-bottom: 6px; display: block; }
+      .list { display: flex; flex-direction: column; gap: 12px; }
+      .list-item {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border);
+        background: rgba(2, 6, 23, 0.7);
+      }
+      .badge { padding: 4px 8px; border-radius: 999px; font-size: 11px; border: 1px solid var(--border); color: var(--muted); }
+      @media (max-width: 900px) {
+        .grid-2 { grid-template-columns: 1fr; }
+        .hero { flex-direction: column; align-items: flex-start; }
+      }
+      .error { color: #fecaca; margin-top: 10px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="hero">
+        <div>
+          <h1>Credentialing Passport for Clinicians</h1>
+          <p>Fill once, reuse everywhere. Orchestrated credentialing with audit‑ready evidence bundles.</p>
+        </div>
+        <span class="pill">● Live Demo</span>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>Passports</h3>
+          <p class="muted">Seed demo and load clinician passports.</p>
+          <div style="margin-top:12px;">
+            <button class="button secondary" id="refreshBtn">Refresh</button>
+            <button class="button" id="seedBtn" style="margin-left:8px;">Seed Demo Passport</button>
+          </div>
+          <div class="list" id="passportList" style="margin-top:16px;"></div>
+        </div>
+        <div class="card">
+          <h3>Selected Passport</h3>
+          <p class="muted">Identity + enrollment snapshot.</p>
+          <div id="selectedPassport" class="muted" style="margin-top:10px;">Select a passport.</div>
+          <div style="margin-top:14px;">
+            <label class="label">Destination ID</label>
+            <input class="input" id="destId" placeholder="demo-hospital" />
+            <label class="label" style="margin-top:8px;">Destination Type</label>
+            <select class="select" id="destType">
+              <option value="hospital">Hospital</option>
+              <option value="group">Group</option>
+              <option value="staffing_firm">Staffing Firm</option>
+              <option value="telehealth">Telehealth</option>
+            </select>
+            <div style="margin-top:10px;">
+              <button class="button" id="startWorkflowBtn">Start Workflow</button>
+              <button class="button secondary" id="runDemoWorkflowBtn" style="margin-left:8px;">Run Demo Workflow</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>Workflow Status</h3>
+          <p class="muted">Task runs, audit trail, evidence bundle.</p>
+          <label class="label">Workflow ID</label>
+          <input class="input" id="workflowId" placeholder="wf-..." />
+          <div style="margin-top:10px;">
+            <button class="button secondary" id="refreshWorkflowBtn">Refresh Status</button>
+          </div>
+          <div id="workflowStatus" class="muted" style="margin-top:12px;">No workflow loaded.</div>
+        </div>
+        <div class="card">
+          <h3>Evidence Bundle</h3>
+          <p class="muted">Download audit-ready evidence.</p>
+          <div id="evidencePanel" class="muted" style="margin-top:12px;">Run a workflow to generate.</div>
+        </div>
+      </div>
+      <div id="error" class="error"></div>
+    </div>
+
+    <script>
+      const API_BASE = 'https://raa-j914.onrender.com';
+      let selectedClinician = null;
+
+      async function api(path, options) {
+        const res = await fetch(API_BASE + path, {
+          headers: { 'Content-Type': 'application/json' },
+          ...options,
+        });
+        if (!res.ok) {
+          throw new Error(await res.text());
+        }
+        return res.json();
+      }
+
+      const errorEl = document.getElementById('error');
+      function setError(msg) {
+        errorEl.textContent = msg || '';
+      }
+
+      async function refreshPassports() {
+        try {
+          setError('');
+          const list = await api('/api/passports');
+          const container = document.getElementById('passportList');
+          container.innerHTML = '';
+          if (!list.length) {
+            container.innerHTML = '<div class="muted">No passports yet.</div>';
+            return;
+          }
+          list.forEach((p) => {
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            item.innerHTML = `
+              <div>
+                <div style="font-weight:600">${p.identity?.legal_name || 'Unnamed'}</div>
+                <div class="muted">${p.clinician_id}</div>
+              </div>
+              <span class="badge">${(p.licenses?.state_licenses || []).length} licenses</span>
+            `;
+            item.onclick = () => selectPassport(p.clinician_id);
+            container.appendChild(item);
+          });
+        } catch (e) {
+          setError(e.message || 'Failed to refresh');
+        }
+      }
+
+      async function selectPassport(id) {
+        try {
+          const data = await api('/api/passport/' + id);
+          selectedClinician = data.passport.clinician_id;
+          const p = data.passport;
+          document.getElementById('selectedPassport').innerHTML = `
+            <div><strong>${p.identity?.legal_name || 'Unnamed'}</strong></div>
+            <div class="muted">${p.identity?.email || ''}</div>
+            <div class="muted">NPI: ${p.enrollment?.practice_locations?.[0]?.npi || '—'}</div>
+          `;
+        } catch (e) {
+          setError(e.message || 'Failed to load passport');
+        }
+      }
+
+      async function seedDemo() {
+        try {
+          await api('/api/demo/seed', { method: 'POST' });
+          await refreshPassports();
+        } catch (e) {
+          setError(e.message || 'Seed failed');
+        }
+      }
+
+      async function startWorkflow() {
+        if (!selectedClinician) {
+          setError('Select a passport first.');
+          return;
+        }
+        const destinationId = document.getElementById('destId').value || 'demo-hospital';
+        const destinationType = document.getElementById('destType').value || 'hospital';
+        try {
+          const wf = await api('/api/passport/' + selectedClinician + '/authorize', {
+            method: 'POST',
+            body: JSON.stringify({ destination_id: destinationId, destination_type: destinationType, scoped_permissions: [] }),
+          });
+          await api('/api/workflow/' + wf.workflow_id + '/run', { method: 'POST' });
+          document.getElementById('workflowId').value = wf.workflow_id;
+          await refreshWorkflow();
+        } catch (e) {
+          setError(e.message || 'Workflow failed');
+        }
+      }
+
+      async function runDemoWorkflow() {
+        try {
+          const wf = await api('/api/demo/workflow', { method: 'POST' });
+          document.getElementById('workflowId').value = wf.workflow_id;
+          await refreshWorkflow();
+        } catch (e) {
+          setError(e.message || 'Demo workflow failed');
+        }
+      }
+
+      async function refreshWorkflow() {
+        const id = document.getElementById('workflowId').value;
+        if (!id) return;
+        try {
+          const status = await api('/api/workflow/' + id);
+          document.getElementById('workflowStatus').textContent =
+            'Progress: ' + (status.progress_percentage || 0).toFixed(0) + '% | Status: ' + status.workflow.status;
+
+          const evidence = status.workflow.evidence_bundle;
+          const evidencePanel = document.getElementById('evidencePanel');
+          if (evidence) {
+            const blob = new Blob([JSON.stringify(evidence, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            evidencePanel.innerHTML = `<a class="button" href="${url}" download="evidence-${id}.json">Download Evidence</a>`;
+          } else {
+            evidencePanel.textContent = 'Run a workflow to generate.';
+          }
+        } catch (e) {
+          setError(e.message || 'Failed to load workflow');
+        }
+      }
+
+      document.getElementById('refreshBtn').onclick = refreshPassports;
+      document.getElementById('seedBtn').onclick = seedDemo;
+      document.getElementById('startWorkflowBtn').onclick = startWorkflow;
+      document.getElementById('runDemoWorkflowBtn').onclick = runDemoWorkflow;
+      document.getElementById('refreshWorkflowBtn').onclick = refreshWorkflow;
+
+      refreshPassports();
+    </script>
+  </body>
+</html>
