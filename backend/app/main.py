@@ -71,6 +71,8 @@ app.add_middleware(
         "http://127.0.0.1:8501",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
     ],  # Allow all in dev
     allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
     allow_credentials=True,
@@ -267,6 +269,7 @@ def run_workflow_now(
     wf_dump = jsonable_encoder(updated.model_dump())
     if getattr(updated, "_evidence_bundle", None):
         wf_dump["evidence_bundle"] = jsonable_encoder(getattr(updated, "_evidence_bundle"))
+
     updated_workflow(db, workflow_id, Workflow(**wf_dump))
     return Workflow(**wf_dump)
 

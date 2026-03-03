@@ -151,7 +151,9 @@
     </div>
 
     <script>
-      const API_BASE = 'https://raa-j914.onrender.com';
+      const urlParams = new URLSearchParams(window.location.search);
+      const apiOverride = urlParams.get('api');
+      const API_BASE = apiOverride || 'https://raa-j914.onrender.com';
       let selectedClinician = null;
 
       async function api(path, options) {
@@ -169,6 +171,9 @@
       function setError(msg) {
         errorEl.textContent = msg || '';
       }
+
+      // Show API base in console for debugging
+      console.log('API_BASE:', API_BASE);
 
       async function refreshPassports() {
         try {
