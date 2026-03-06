@@ -61,12 +61,13 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 
 # Frontend (Terminal 2)
-cd frontend
+# Use the Figma frontend for the full UI
+cd Figma
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000` in your browser.
+Open `http://localhost:5173` in your browser.
 
 During development:
 - Frontend reads `NEXT_PUBLIC_API_BASE_URL` (defaults to `http://localhost:8000`)

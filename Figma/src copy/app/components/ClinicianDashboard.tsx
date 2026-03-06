@@ -6,7 +6,11 @@ import { UploadModal } from "./UploadModal";
 import { ResolveModal } from "./ResolveModal";
 import { FixResubmitWizard } from "./FixResubmitWizard";
 import { toast } from "sonner";
+<<<<<<< HEAD:Figma/src copy/app/components/ClinicianDashboard.tsx
 import { useNavigate, Link } from "react-router";
+=======
+import { demoWorkflow, getWorkflow, seedDemoPassport } from "../api";
+>>>>>>> b3acd78c5876a53f38ed27158ac86fc26448c0a2:Figma/src/app/components/ClinicianDashboard.tsx
 
 interface TimelineEntry {
   label: string;
@@ -94,6 +98,7 @@ export function ClinicianDashboard() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [activeMetric, setActiveMetric] = useState<string | null>(null);
   const [uploadTarget, setUploadTarget] = useState<string | null>(null);
+<<<<<<< HEAD:Figma/src copy/app/components/ClinicianDashboard.tsx
   const [resolveModalOpen, setResolveModalOpen] = useState(false);
   const [resolveTarget, setResolveTarget] = useState<string | null>(null);
   const [fixResubmitWizardOpen, setFixResubmitWizardOpen] = useState(false);
@@ -147,6 +152,12 @@ export function ClinicianDashboard() {
   const availableStatesForAdd = US_STATES.filter(
     (s) => !selectedStates.has(s) && s.toLowerCase().includes(addStateSearch.toLowerCase())
   );
+=======
+  const [workflowId, setWorkflowId] = useState("");
+  const [workflowStatus, setWorkflowStatus] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+>>>>>>> b3acd78c5876a53f38ed27158ac86fc26448c0a2:Figma/src/app/components/ClinicianDashboard.tsx
 
   useEffect(() => {
     if (!started || done || visibleCount >= allSteps.length) return;
@@ -206,10 +217,29 @@ export function ClinicianDashboard() {
               <span>Encrypted</span>
             </div>
             <button
+<<<<<<< HEAD:Figma/src copy/app/components/ClinicianDashboard.tsx
               onClick={() => setShowStateSelector(true)}
+=======
+              onClick={async () => {
+                try {
+                  setLoading(true);
+                  setError(null);
+                  await seedDemoPassport();
+                  const wf = await demoWorkflow();
+                  setWorkflowId(wf.workflow_id || "");
+                  const status = await getWorkflow(wf.workflow_id);
+                  setWorkflowStatus(status);
+                  start();
+                } catch (e: any) {
+                  setError(e.message || "Failed to start demo workflow");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+>>>>>>> b3acd78c5876a53f38ed27158ac86fc26448c0a2:Figma/src/app/components/ClinicianDashboard.tsx
               className="bg-foreground text-background text-[15px] px-8 py-3 rounded-lg hover:opacity-90 transition-opacity cursor-pointer"
             >
-              Grant access &amp; begin
+              {loading ? "Starting…" : "Grant access & begin"}
             </button>
             <button
               onClick={() => setShowPermissions(true)}
@@ -219,6 +249,12 @@ export function ClinicianDashboard() {
             </button>
           </div>
         </div>
+
+        {error && (
+          <div className="mt-6 text-[14px] text-red">
+            {error}
+          </div>
+        )}
 
         {/* Permissions review modal */}
         {showPermissions && (
@@ -442,6 +478,43 @@ export function ClinicianDashboard() {
         >
           Send for verification
         </button>
+      </div>
+
+      <div className="bg-surface-elevated border border-border rounded-xl p-6 mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <SectionLabel>Live workflow (backend)</SectionLabel>
+          <button
+            onClick={async () => {
+              if (!workflowId) return;
+              try {
+                setLoading(true);
+                setError(null);
+                const status = await getWorkflow(workflowId);
+                setWorkflowStatus(status);
+              } catch (e: any) {
+                setError(e.message || "Failed to refresh workflow");
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className="text-[13px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
+        <div className="text-[13px] text-muted-foreground">
+          Workflow ID: {workflowId || "—"}
+        </div>
+        {workflowStatus && (
+          <div className="mt-2 text-[14px] text-foreground">
+            Status: {workflowStatus.workflow?.status} · Progress: {Math.round(workflowStatus.progress_percentage || 0)}%
+          </div>
+        )}
+        {error && (
+          <div className="mt-2 text-[13px] text-red">
+            {error}
+          </div>
+        )}
       </div>
 
       {/* Live metrics */}
