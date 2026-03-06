@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Dot } from "./ui-components";
 import { Search, X, ArrowLeft } from "lucide-react";
+import { listPassports } from "../api";
 
 const providers = [
   { id: "1", name: "Dr. Sarah Chen", specialty: "Internal Medicine", facility: "Main Campus", pct: 93, blockers: 0, exp: 1, stage: "Active", status: "verified" as const },
@@ -17,8 +18,34 @@ const providers = [
 export function OrgProviders() {
   const [q, setQ] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [remoteProviders, setRemoteProviders] = useState<typeof providers | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const filtered = providers.filter(
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await listPassports();
+        const mapped = (data || []).map((p: any, idx: number) => ({
+          id: p.clinician_id || String(idx + 1),
+          name: p.identity?.legal_name || "Unnamed Clinician",
+          specialty: p.board_certifications?.[0]?.specialty || "—",
+          facility: p.enrollment?.practice_locations?.[0]?.name || "—",
+          pct: Math.round((p.quality_report?.completeness_score || 0.75) * 100),
+          blockers: 0,
+          exp: 0,
+          stage: "Active",
+          status: "verified" as const,
+        }));
+        setRemoteProviders(mapped.length ? mapped : null);
+      } catch (e: any) {
+        setError(e.message || "Failed to load providers");
+      }
+    })();
+  }, []);
+
+  const source = remoteProviders || providers;
+
+  const filtered = source.filter(
     (p) => p.name.toLowerCase().includes(q.toLowerCase()) || p.specialty.toLowerCase().includes(q.toLowerCase())
   );
 
@@ -32,7 +59,7 @@ export function OrgProviders() {
       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 mb-8">
         <div>
           <h1 className="text-[22px] text-foreground tracking-[-0.02em]">Providers</h1>
-          <p className="text-[15px] text-muted-foreground mt-1">{providers.length} in roster</p>
+          <p className="text-[15px] text-muted-foreground mt-1">{source.length} in roster</p>
         </div>
         <button
           onClick={() => setAddOpen(true)}
@@ -52,6 +79,9 @@ export function OrgProviders() {
           className="w-full bg-surface-elevated border border-border rounded-xl pl-10 pr-4 py-3 text-[15px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all"
         />
       </div>
+      {error && (
+        <div className="text-[13px] text-red mb-4">{error}</div>
+      )}
 
       {/* Table */}
       <div className="overflow-x-auto bg-surface-elevated border border-border rounded-xl">
