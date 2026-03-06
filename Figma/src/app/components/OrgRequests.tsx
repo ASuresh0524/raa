@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { X, ArrowLeft, Check, Search, ChevronRight } from "lucide-react";
 import { Dot } from "./ui-components";
-import { listWorkflows } from "../api";
 
 const stages = ["Intake", "Verify", "Assemble", "Submit", "Review", "Approved"];
 
@@ -92,7 +91,6 @@ export function OrgRequests() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Wizard selections
   const [selectedClinician, setSelectedClinician] = useState<typeof clinicians[0] | null>(null);
@@ -125,26 +123,6 @@ export function OrgRequests() {
       setSearchParams({}, { replace: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const workflows = await listWorkflows();
-        if (!Array.isArray(workflows) || workflows.length === 0) return;
-        const mapped: Request[] = workflows.map((w: any, i: number) => ({
-          id: w.workflow_id || `REQ-${String(i + 1).padStart(3, "0")}`,
-          type: w.destination_type === "hospital" ? "Facility credentialing" : "Payer enrollment",
-          dest: w.destination_id || "—",
-          provider: w.clinician_id || "—",
-          date: new Date(w.created_at || Date.now()).toLocaleDateString(),
-          stage: w.status === "COMPLETED" ? 5 : w.status === "PENDING_REVIEW" ? 4 : 2,
-        }));
-        setRequests(mapped);
-      } catch (e: any) {
-        setError(e.message || "Failed to load workflows");
-      }
-    })();
   }, []);
 
   const submitRequest = () => {
@@ -202,9 +180,6 @@ export function OrgRequests() {
       </div>
 
       <div className="space-y-4">
-        {error && (
-          <div className="text-[13px] text-red">{error}</div>
-        )}
         {requests.map((req) => (
           <div
             key={req.id}
