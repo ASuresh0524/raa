@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { ProviderDrawer } from "./ProviderDrawer";
+import { ResolveModal } from "./ResolveModal";
 
 const expiring = [
   { provider: "Dr. Sarah Chen", item: "ABIM Board Cert", exp: "May 15, 2026", days: 72, status: "Renewal initiated" },
@@ -31,6 +32,8 @@ export function OrgMonitoring() {
   const [verifying, setVerifying] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [drawerContext, setDrawerContext] = useState("");
+  const [resolveModal, setResolveModal] = useState(false);
+  const [resolveItem, setResolveItem] = useState("");
 
   const expiringRef = useRef<HTMLDivElement>(null);
   const sanctionsRef = useRef<HTMLDivElement>(null);
@@ -67,6 +70,11 @@ export function OrgMonitoring() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Export downloaded", { description: "compliance-monitoring.csv" });
+  };
+
+  const handleResolve = (item: string) => {
+    setResolveItem(item);
+    setResolveModal(true);
   };
 
   return (
@@ -140,7 +148,7 @@ export function OrgMonitoring() {
               <div className="flex items-center gap-5 shrink-0 ml-4">
                 <span className="text-[13px] text-text-secondary hidden sm:block">{item.exp}</span>
                 <button
-                  onClick={() => toast.success("Resolving", { description: `${item.item} · ${item.provider}` })}
+                  onClick={() => handleResolve(`${item.item} · ${item.provider}`)}
                   className="text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
                 >
                   Resolve
@@ -208,6 +216,11 @@ export function OrgMonitoring() {
         providerName={selectedProvider}
         onClose={() => setSelectedProvider(null)}
         context={drawerContext}
+      />
+      <ResolveModal
+        open={resolveModal}
+        onClose={() => setResolveModal(false)}
+        itemLabel={resolveItem}
       />
     </div>
   );

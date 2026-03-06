@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router";
 import { useState } from "react";
 import { ThemeToggle } from "./ui-components";
 import { ArrowLeft } from "lucide-react";
+import { motion } from "motion/react";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -24,7 +25,12 @@ export function LoginPage() {
       <div className="absolute top-5 right-5">
         <ThemeToggle />
       </div>
-      <div className="w-full max-w-[360px]">
+      <motion.div
+        className="w-full max-w-[360px]"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+      >
         <Link to="/" className="block text-center text-[18px] text-foreground tracking-[-0.03em] mb-12">
           credenza
         </Link>
@@ -70,11 +76,11 @@ export function LoginPage() {
 
         <p className="text-[15px] text-muted-foreground text-center mt-10">
           No account?{" "}
-          <button onClick={() => navigate("/role-select")} className="text-foreground hover:underline cursor-pointer">
+          <button onClick={() => navigate("/signup")} className="text-foreground hover:underline cursor-pointer">
             Get started
           </button>
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 }

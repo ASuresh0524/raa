@@ -1,4 +1,4 @@
-/* routes – v4 cache-bust */
+/* routes – v5 signup flow */
 import { createBrowserRouter } from "react-router";
 import { MarketingLayout } from "./components/MarketingLayout";
 import { HomePage } from "./components/HomePage";
@@ -7,6 +7,9 @@ import { ForOrganizationsPage } from "./components/ForOrganizationsPage";
 import { SecurityPage } from "./components/SecurityPage";
 import { HowItWorksPage } from "./components/HowItWorksPage";
 import { LoginPage } from "./components/LoginPage";
+import { SignupPage } from "./components/SignupPage";
+import { SignupClinicianPage } from "./components/SignupClinicianPage";
+import { SignupOrgPage } from "./components/SignupOrgPage";
 import { RoleSelect } from "./components/RoleSelect";
 import { ClinicianLayout } from "./components/ClinicianLayout";
 import { ClinicianDashboard } from "./components/ClinicianDashboard";
@@ -15,6 +18,7 @@ import { ClinicianPassport } from "./components/ClinicianPassport";
 import { ClinicianRequests } from "./components/ClinicianRequests";
 import { ClinicianRequestDetail } from "./components/ClinicianRequestDetail";
 import { ClinicianShare } from "./components/ClinicianShare";
+import { ClinicianSubmitVerification } from "./components/ClinicianSubmitVerification";
 import { OrgLayout } from "./components/OrgLayout";
 import { OrgDashboard } from "./components/OrgDashboard";
 import { OrgProviders } from "./components/OrgProviders";
@@ -28,6 +32,7 @@ import { OrgTaskDetail } from "./components/OrgTaskDetail";
 import { OrgMonitoring } from "./components/OrgMonitoring";
 import { OrgReports } from "./components/OrgReports";
 import { OrgSettings } from "./components/OrgSettings";
+import { RejectionDetailPage } from "./components/RejectionDetailPage";
 
 export const router = createBrowserRouter([
   {
@@ -46,6 +51,18 @@ export const router = createBrowserRouter([
     Component: LoginPage,
   },
   {
+    path: "/signup",
+    Component: SignupPage,
+  },
+  {
+    path: "/signup/clinician",
+    Component: SignupClinicianPage,
+  },
+  {
+    path: "/signup/organization",
+    Component: SignupOrgPage,
+  },
+  {
     path: "/role-select",
     Component: RoleSelect,
   },
@@ -59,6 +76,8 @@ export const router = createBrowserRouter([
       { path: "requests", Component: ClinicianRequests },
       { path: "requests/:id", Component: ClinicianRequestDetail },
       { path: "share", Component: ClinicianShare },
+      { path: "submit-verification", Component: ClinicianSubmitVerification },
+      { path: "rejections/:id", Component: RejectionDetailPage },
     ],
   },
   {
@@ -72,6 +91,7 @@ export const router = createBrowserRouter([
       { path: "requests/:id", Component: OrgRequestView },
       { path: "submissions", Component: OrgSubmissions },
       { path: "submissions/:id", Component: OrgSubmissionDetail },
+      { path: "rejections/:id", Component: RejectionDetailPage },
       { path: "attention", Component: OrgNeedsAttention },
       { path: "attention/:id", Component: OrgTaskDetail },
       { path: "monitoring", Component: OrgMonitoring },
