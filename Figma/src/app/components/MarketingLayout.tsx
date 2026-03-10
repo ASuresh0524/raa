@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation } from "react-router";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { ThemeToggle } from "./ui-components";
+import { motion, AnimatePresence } from "motion/react";
 
 const links = [
   { label: "How it works", path: "/how-it-works" },
@@ -62,28 +63,36 @@ export function MarketingLayout() {
             </button>
           </div>
         </div>
-        {mobileOpen && (
-          <div className="md:hidden border-t border-border bg-background px-6 py-5 flex flex-col gap-4">
-            {links.map((l) => (
-              <Link
-                key={l.path}
-                to={l.path}
-                onClick={() => setMobileOpen(false)}
-                className="text-[15px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {l.label}
-              </Link>
-            ))}
-            <div className="pt-4 border-t border-border flex gap-4">
-              <Link to="/login" onClick={() => setMobileOpen(false)} className="text-[15px] text-muted-foreground">
-                Log in
-              </Link>
-              <Link to="/login?demo=true" onClick={() => setMobileOpen(false)} className="text-[15px] text-foreground">
-                Request demo
-              </Link>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div
+              className="md:hidden border-t border-border bg-background px-6 py-5 flex flex-col gap-4"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+            >
+              {links.map((l) => (
+                <Link
+                  key={l.path}
+                  to={l.path}
+                  onClick={() => setMobileOpen(false)}
+                  className="text-[15px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {l.label}
+                </Link>
+              ))}
+              <div className="pt-4 border-t border-border flex gap-4">
+                <Link to="/login" onClick={() => setMobileOpen(false)} className="text-[15px] text-muted-foreground">
+                  Log in
+                </Link>
+                <Link to="/login?demo=true" onClick={() => setMobileOpen(false)} className="text-[15px] text-foreground">
+                  Request demo
+                </Link>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       <main className="pt-16">

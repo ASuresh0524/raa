@@ -4,6 +4,8 @@ import { ChevronRight, ArrowLeft } from "lucide-react";
 import { Link } from "react-router";
 import { useCredentialing } from "./CredentialingContext";
 import { SectionLabel, Dot } from "./ui-components";
+import { ResolveModal } from "./ResolveModal";
+import { FixResubmitWizard } from "./FixResubmitWizard";
 
 // ── Flow phases ──
 const phases = [
@@ -104,7 +106,22 @@ export function ClinicianPassport() {
   const [expanded, setExpanded] = React.useState<string | null>("Identity");
   const [view, setView] = React.useState<View>("journey");
   const [activeMetric, setActiveMetric] = React.useState<string | null>(null);
-  const { done } = useCredentialing();
+  const [resolveOpen, setResolveOpen] = React.useState(false);
+  const [resolveLabel, setResolveLabel] = React.useState("");
+  const [resolveStatus, setResolveStatus] = React.useState<"verified" | "pending" | "warning" | "error">("warning");
+  const [wizardOpen, setWizardOpen] = React.useState(false);
+  const [wizardTarget, setWizardTarget] = React.useState<{
+    id: string; payer: string; credential: string; reason: string; rejectedDate: string; originalConf: string;
+  } | null>(null);
+  const { done, clinicianType } = useCredentialing();
+
+  const openResolve = (label: string, status: "verified" | "pending" | "warning" | "error" = "warning") => {
+    setResolveLabel(label);
+    setResolveStatus(status);
+    setResolveOpen(true);
+  };
+
+  const designation = clinicianType || "MD";
 
   const total = sections.reduce((a, s) => a + s.fields.length, 0);
   const verified = sections.reduce((a, s) => a + s.fields.filter((f) => f.status === "verified").length, 0);
@@ -119,7 +136,13 @@ export function ClinicianPassport() {
       </Link>
 
       <h1 className="text-[22px] text-foreground tracking-[-0.02em]">Credentialing Passport</h1>
-      <p className="text-[15px] text-muted-foreground mt-1 mb-10">Dr. Sarah Chen &middot; Internal Medicine</p>
+      <p className="text-[15px] text-muted-foreground mt-1 mb-10">
+        Dr. Sarah Chen
+        <span className="inline-flex items-center ml-2 text-[11px] tracking-[0.04em] text-muted-foreground border border-border rounded px-1.5 py-0.5 align-middle">
+          {designation}
+        </span>
+        {" "}&middot; Internal Medicine
+      </p>
 
       {!done ? (
         <div className="bg-surface-elevated border border-border rounded-xl p-10 text-center">
@@ -269,12 +292,12 @@ export function ClinicianPassport() {
                       <p className="text-[13px] text-muted-foreground mt-0.5 ml-[18px]">{item.detail}</p>
                     </div>
                     {(item.status === "error" || item.status === "warning" || item.status === "pending") && (
-                      <Link
-                        to="/app/clinician/tasks"
-                        className="shrink-0 ml-[18px] sm:ml-0 text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg transition-colors"
+                      <button
+                        onClick={() => openResolve(item.label, item.status)}
+                        className="shrink-0 ml-[18px] sm:ml-0 text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
                       >
                         Resolve
-                      </Link>
+                      </button>
                     )}
                   </div>
                 ))}
@@ -306,9 +329,12 @@ export function ClinicianPassport() {
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       {(item.status === "error" || item.status === "warning" || item.status === "pending") && (
-                        <Link to="/app/clinician/tasks" className="text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg transition-colors">
+                        <button
+                          onClick={() => openResolve(item.label, item.status)}
+                          className="text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                        >
                           Resolve
-                        </Link>
+                        </button>
                       )}
                       <span className="text-[13px] text-text-secondary tabular-nums">{item.time}</span>
                     </div>
@@ -336,9 +362,12 @@ export function ClinicianPassport() {
                     <p className="text-[14px] text-muted-foreground">{item.detail}</p>
                   </div>
                   {(item.status === "error" || item.status === "warning" || item.status === "pending") && (
-                    <Link to="/app/clinician/tasks" className="shrink-0 text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg transition-colors">
+                    <button
+                      onClick={() => openResolve(item.label, item.status)}
+                      className="shrink-0 text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    >
                       Resolve
-                    </Link>
+                    </button>
                   )}
                 </div>
               ))}
@@ -389,9 +418,12 @@ export function ClinicianPassport() {
                         </div>
                         <div className="flex items-center gap-4 shrink-0 text-[13px] text-text-secondary">
                           {(field.status === "error" || field.status === "warning" || field.status === "pending") && (
-                            <Link to="/app/clinician/tasks" className="text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg transition-colors">
+                            <button
+                              onClick={() => openResolve(field.label, field.status)}
+                              className="text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                            >
                               Resolve
-                            </Link>
+                            </button>
                           )}
                           {field.exp && <span className="hidden sm:block">exp {field.exp}</span>}
                           <span className="hidden sm:block">{field.source}</span>
@@ -408,6 +440,83 @@ export function ClinicianPassport() {
       )}
         </>
       )}
+
+      {/* ─── Rejection History ─── */}
+      {done && (() => {
+        const rejectionHistory = [
+          {
+            id: "REJ-001",
+            payer: "Anthem Blue Cross",
+            credential: "Malpractice Insurance",
+            reason: "Malpractice certificate expired — current policy required",
+            rejectedDate: "Feb 28, 2026",
+            originalConf: "ANT-26-3301",
+            status: "rejected" as const,
+          },
+          {
+            id: "REJ-002",
+            payer: "Molina Healthcare",
+            credential: "DEA Registration",
+            reason: "DEA registration address does not match NPI practice location",
+            rejectedDate: "Feb 25, 2026",
+            originalConf: "MOL-26-1190",
+            status: "rejected" as const,
+          },
+        ];
+
+        return rejectionHistory.length > 0 ? (
+          <div className="mt-10">
+            <div className="flex items-center justify-between mb-4">
+              <SectionLabel>Rejection history</SectionLabel>
+              <span className="inline-flex items-center gap-1.5 text-[12px] text-red bg-red/10 border border-red/20 px-2.5 py-1 rounded-full tabular-nums">
+                {rejectionHistory.length} rejected
+              </span>
+            </div>
+            <div className="bg-surface-elevated border border-border rounded-xl divide-y divide-border">
+              {rejectionHistory.map((rej) => (
+                <div key={rej.id} className="px-5 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2.5">
+                        <Dot status="error" />
+                        <p className="text-[15px] text-foreground">{rej.payer}</p>
+                      </div>
+                      <p className="text-[14px] text-muted-foreground mt-1 ml-[18px]">{rej.reason}</p>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 ml-[18px]">
+                        <Link to={`/app/clinician/rejections/${rej.id}`} className="text-[12px] text-muted-foreground hover:text-foreground hover:underline underline-offset-2 cursor-pointer transition-colors tabular-nums">
+                          {rej.id}
+                        </Link>
+                        <span className="text-[12px] text-text-secondary">{rej.credential}</span>
+                        <span className="text-[12px] text-text-secondary">Rejected {rej.rejectedDate}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => { setWizardTarget(rej); setWizardOpen(true); }}
+                        className="text-[13px] bg-foreground text-background px-3 py-1.5 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                      >
+                        Fix &amp; resubmit
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null;
+      })()}
+
+      <ResolveModal
+        open={resolveOpen}
+        onClose={() => setResolveOpen(false)}
+        itemLabel={resolveLabel}
+        itemStatus={resolveStatus}
+      />
+      <FixResubmitWizard
+        open={wizardOpen}
+        onClose={() => { setWizardOpen(false); setWizardTarget(null); }}
+        item={wizardTarget}
+      />
     </div>
   );
 }

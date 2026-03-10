@@ -3,6 +3,7 @@ import { ArrowLeft, Copy } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { Dot, SectionLabel } from "./ui-components";
 import { toast } from "sonner";
+import { ResolveModal } from "./ResolveModal";
 
 const stages = ["Intake", "Verify", "Assemble", "Submit", "Review", "Approved"];
 
@@ -228,6 +229,8 @@ const statusLabel: Record<string, string> = {
 export function OrgSubmissionDetail() {
   const { id } = useParams<{ id: string }>();
   const [copied, setCopied] = React.useState(false);
+  const [resolveOpen, setResolveOpen] = React.useState(false);
+  const [resolveLabel, setResolveLabel] = React.useState("");
 
   const data = id ? SUBMISSION_DB[id] : undefined;
 
@@ -375,7 +378,10 @@ export function OrgSubmissionDetail() {
               </div>
               {(doc.status === "error" || doc.status === "warning" || doc.status === "pending") && (
                 <button
-                  onClick={() => toast.success("Resolving", { description: doc.name })}
+                  onClick={() => {
+                    setResolveOpen(true);
+                    setResolveLabel(doc.name);
+                  }}
                   className="shrink-0 text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
                 >
                   Resolve
@@ -407,7 +413,10 @@ export function OrgSubmissionDetail() {
                   <div className="flex items-center gap-3 shrink-0">
                     {(item.status === "error" || item.status === "warning" || item.status === "pending") && (
                       <button
-                        onClick={() => toast.success("Resolving", { description: item.label })}
+                        onClick={() => {
+                          setResolveOpen(true);
+                          setResolveLabel(item.label);
+                        }}
                         className="text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
                       >
                         Resolve
@@ -421,6 +430,12 @@ export function OrgSubmissionDetail() {
           ))}
         </div>
       </div>
+
+      <ResolveModal
+        open={resolveOpen}
+        itemLabel={resolveLabel}
+        onClose={() => setResolveOpen(false)}
+      />
     </div>
   );
 }

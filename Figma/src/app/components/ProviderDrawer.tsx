@@ -1,8 +1,10 @@
+import { motion } from "motion/react";
 import { X } from "lucide-react";
 import { Dot } from "./ui-components";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { UploadModal } from "./UploadModal";
+import { ResolveModal } from "./ResolveModal";
 
 export interface ProviderCredential {
   name: string;
@@ -13,6 +15,7 @@ export interface ProviderCredential {
 
 export interface ProviderProfile {
   name: string;
+  type: "MD" | "RN";
   npi: string;
   specialty: string;
   facility: string;
@@ -27,6 +30,7 @@ export interface ProviderProfile {
 const providerProfiles: Record<string, ProviderProfile> = {
   "Dr. James Wilson": {
     name: "Dr. James Wilson",
+    type: "MD",
     npi: "1234567890",
     specialty: "Internal Medicine",
     facility: "East Clinic",
@@ -48,6 +52,7 @@ const providerProfiles: Record<string, ProviderProfile> = {
   },
   "Dr. Maria Santos": {
     name: "Dr. Maria Santos",
+    type: "MD",
     npi: "2345678901",
     specialty: "Family Medicine",
     facility: "Main Campus",
@@ -68,6 +73,7 @@ const providerProfiles: Record<string, ProviderProfile> = {
   },
   "Dr. Robert Kim": {
     name: "Dr. Robert Kim",
+    type: "MD",
     npi: "3456789012",
     specialty: "Cardiology",
     facility: "Main Campus",
@@ -88,6 +94,7 @@ const providerProfiles: Record<string, ProviderProfile> = {
   },
   "Dr. Lisa Park": {
     name: "Dr. Lisa Park",
+    type: "MD",
     npi: "4567890123",
     specialty: "Pediatrics",
     facility: "West Clinic",
@@ -108,6 +115,7 @@ const providerProfiles: Record<string, ProviderProfile> = {
   },
   "Dr. Sarah Chen": {
     name: "Dr. Sarah Chen",
+    type: "MD",
     npi: "5678901234",
     specialty: "Oncology",
     facility: "Main Campus",
@@ -129,6 +137,7 @@ const providerProfiles: Record<string, ProviderProfile> = {
   },
   "Dr. Emily Taylor": {
     name: "Dr. Emily Taylor",
+    type: "RN",
     npi: "6789012345",
     specialty: "Dermatology",
     facility: "East Clinic",
@@ -146,6 +155,7 @@ const providerProfiles: Record<string, ProviderProfile> = {
   },
   "Dr. Ahmed Hassan": {
     name: "Dr. Ahmed Hassan",
+    type: "MD",
     npi: "7890123456",
     specialty: "Psychiatry",
     facility: "Main Campus",
@@ -163,6 +173,7 @@ const providerProfiles: Record<string, ProviderProfile> = {
   },
   "Dr. Michael Brown": {
     name: "Dr. Michael Brown",
+    type: "MD",
     npi: "8901234567",
     specialty: "Orthopedic Surgery",
     facility: "North Campus",
@@ -221,6 +232,8 @@ export function ProviderDrawer({ providerName, onClose, context }: ProviderDrawe
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadTarget, setUploadTarget] = useState<{ name: string; description: string } | null>(null);
   const [uploadedCreds, setUploadedCreds] = useState<Set<string>>(new Set());
+  const [resolveOpen, setResolveOpen] = useState(false);
+  const [resolveCred, setResolveCred] = useState<ProviderCredential | null>(null);
 
   // Reset state when provider changes
   useEffect(() => {
@@ -229,6 +242,8 @@ export function ProviderDrawer({ providerName, onClose, context }: ProviderDrawe
     setUploadModalOpen(false);
     setUploadTarget(null);
     setUploadedCreds(new Set());
+    setResolveOpen(false);
+    setResolveCred(null);
   }, [providerName]);
 
   const handleRequestDocuments = () => {
@@ -271,6 +286,36 @@ export function ProviderDrawer({ providerName, onClose, context }: ProviderDrawe
     setUploadTarget(null);
   };
 
+  const handleResolveOpen = (cred: ProviderCredential) => {
+    setResolveCred(cred);
+    setResolveOpen(true);
+  };
+
+  const handleResolveClose = () => {
+    setResolveOpen(false);
+    setResolveCred(null);
+  };
+
+  const handleResolveComplete = (note: string) => {
+    setResolveOpen(false);
+    if (resolveCred) {
+      const updatedCred: ProviderCredential = {
+        ...resolveCred,
+        note,
+        status: "verified",
+      };
+      const updatedProfile: ProviderProfile = {
+        ...profile!,
+        credentials: profile!.credentials.map(c => c.name === resolveCred.name ? updatedCred : c),
+      };
+      providerProfiles[profile!.name] = updatedProfile;
+      toast.success("Issue resolved", {
+        description: `${resolveCred.name} resolved for ${profile?.name}`,
+      });
+    }
+    setResolveCred(null);
+  };
+
   // Prevent body scroll when open
   useEffect(() => {
     if (isOpen) {
@@ -294,19 +339,34 @@ export function ProviderDrawer({ providerName, onClose, context }: ProviderDrawe
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-[2px] z-40 animate-in fade-in duration-200"
+      <motion.div
+        className="fixed inset-0 bg-black/50 backdrop-blur-[2px] z-40"
         onClick={onClose}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
       />
 
       {/* Drawer */}
-      <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[440px] bg-background border-l border-border shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-250">
+      <motion.div
+        className="fixed inset-y-0 right-0 z-50 w-full sm:w-[440px] bg-background border-l border-border shadow-2xl overflow-y-auto"
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+      >
         {/* Header */}
         <div className="sticky top-0 bg-background/80 backdrop-blur-lg border-b border-border z-10 px-6 py-4 flex items-center justify-between">
           <div className="min-w-0 flex-1">
-            <h2 className="text-[17px] text-foreground tracking-[-0.01em] truncate">
-              {profile ? profile.name : providerName}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-[17px] text-foreground tracking-[-0.01em] truncate">
+                {profile ? profile.name : providerName}
+              </h2>
+              {profile && (
+                <span className="inline-flex items-center text-[10px] tracking-[0.06em] text-muted-foreground border border-border rounded px-1.5 py-px shrink-0">
+                  {profile.type}
+                </span>
+              )}
+            </div>
             {context && (
               <p className="text-[13px] text-muted-foreground mt-0.5 truncate">{context}</p>
             )}
@@ -330,7 +390,7 @@ export function ProviderDrawer({ providerName, onClose, context }: ProviderDrawe
               <div className="flex items-center gap-3 mb-5">
                 <span className={`inline-flex items-center gap-2 text-[13px] px-3 py-1.5 rounded-full border ${
                   profile.overallStatus === "compliant"
-                    ? "border-emerald-500/20 text-emerald-400 bg-emerald-500/5"
+                    ? "border-green/20 text-green bg-green/5"
                     : profile.overallStatus === "attention"
                     ? "border-yellow/20 text-yellow bg-yellow/5"
                     : "border-red/20 text-red bg-red/5"
@@ -378,7 +438,7 @@ export function ProviderDrawer({ providerName, onClose, context }: ProviderDrawe
                     disabled={sending || requestSent}
                     className={`inline-flex items-center justify-center gap-2.5 w-full text-[14px] px-5 py-3 rounded-lg border transition-all cursor-pointer disabled:cursor-not-allowed ${
                       requestSent
-                        ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-400"
+                        ? "border-green/20 bg-green/5 text-green"
                         : sending
                         ? "border-border bg-surface-elevated text-muted-foreground opacity-70"
                         : "border-foreground/20 bg-foreground/5 text-foreground hover:bg-foreground/10"
@@ -437,6 +497,14 @@ export function ProviderDrawer({ providerName, onClose, context }: ProviderDrawe
                       )}
                     </div>
                     <div className="flex items-center gap-2.5 shrink-0 ml-4">
+                      {(cred.status === "pending" || cred.status === "attention" || cred.status === "expired") && !uploadedCreds.has(cred.name) && (
+                        <button
+                          onClick={() => handleResolveOpen(cred)}
+                          className="text-[12px] text-muted-foreground hover:text-foreground border border-border px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                        >
+                          Resolve
+                        </button>
+                      )}
                       {(cred.status === "attention" || cred.status === "expired") && !uploadedCreds.has(cred.name) && (
                         <button
                           onClick={() => handleUploadForCred(cred.name)}
@@ -483,7 +551,7 @@ export function ProviderDrawer({ providerName, onClose, context }: ProviderDrawe
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Upload Modal */}
       {uploadModalOpen && uploadTarget && (
@@ -497,6 +565,17 @@ export function ProviderDrawer({ providerName, onClose, context }: ProviderDrawe
             "Document must be current and unexpired",
             "Must include provider name and dates",
           ]}
+        />
+      )}
+
+      {/* Resolve Modal */}
+      {resolveOpen && resolveCred && (
+        <ResolveModal
+          open={resolveOpen}
+          onClose={handleResolveClose}
+          itemLabel={resolveCred.name}
+          itemDetail={resolveCred.note}
+          itemStatus={resolveCred.status === "attention" ? "warning" : resolveCred.status === "expired" ? "error" : "pending"}
         />
       )}
     </>

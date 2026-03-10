@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router";
 import { Dot } from "./ui-components";
 import { toast } from "sonner";
 import { UploadModal } from "./UploadModal";
+import { ResolveModal } from "./ResolveModal";
 
 const STAGE_LIST = ["Intake", "Verify", "Assemble", "Submit", "Review", "Approved"] as const;
 
@@ -181,6 +182,8 @@ export function OrgRequestView(): React.JSX.Element {
   const reqId = params.id ?? "";
   const [copiedId, setCopiedId] = React.useState(false);
   const [uploadOpen, setUploadOpen] = React.useState(false);
+  const [resolveOpen, setResolveOpen] = React.useState(false);
+  const [resolveDoc, setResolveDoc] = React.useState<DocEntry | null>(null);
 
   const req = DB[reqId] ?? null;
 
@@ -217,6 +220,11 @@ export function OrgRequestView(): React.JSX.Element {
 
   const onExport = () => {
     toast.success("Export started", { description: `Credential packet for ${req.id} is being generated` });
+  };
+
+  const onResolveDoc = (doc: DocEntry) => {
+    setResolveDoc(doc);
+    setResolveOpen(true);
   };
 
   return (
@@ -318,7 +326,7 @@ export function OrgRequestView(): React.JSX.Element {
               <div className="flex items-center gap-3">
                 {(doc.status === "warning" || doc.status === "pending" || doc.status === "error") && (
                   <button
-                    onClick={() => toast.success("Resolving", { description: doc.name })}
+                    onClick={() => onResolveDoc(doc)}
                     className="shrink-0 text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
                   >
                     Resolve
@@ -353,7 +361,7 @@ export function OrgRequestView(): React.JSX.Element {
                   <div className="flex items-center gap-3 shrink-0">
                     {(item.status === "error" || item.status === "warning" || item.status === "pending") && (
                       <button
-                        onClick={() => toast.success("Resolving", { description: item.label })}
+                        onClick={() => { setResolveDoc({ name: item.label, status: item.status }); setResolveOpen(true); }}
                         className="text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
                       >
                         Resolve
@@ -378,6 +386,13 @@ export function OrgRequestView(): React.JSX.Element {
         title="Add credential document"
         description={`Upload a document for ${req.provider}'s ${req.type.toLowerCase()} request to ${req.dest}.`}
         requirements={["Document must be current and unexpired", "Must include provider name and relevant dates"]}
+      />
+
+      <ResolveModal
+        open={resolveOpen}
+        onClose={() => setResolveOpen(false)}
+        itemLabel={resolveDoc?.name || ""}
+        itemStatus={resolveDoc?.status}
       />
     </div>
   );

@@ -42,6 +42,16 @@ export function ClinicianShare(): React.JSX.Element {
   const { done } = useCredentialing();
 
   const handleCopy = React.useCallback(() => {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = "https://credenza.app/share/sc-2026-abc123";
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch (_e) { /* noop */ }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, []);

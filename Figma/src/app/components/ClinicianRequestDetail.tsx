@@ -4,6 +4,7 @@ import { ArrowLeft, Copy, Check } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { Dot, SectionLabel } from "./ui-components";
 import { toast } from "sonner";
+import { ResolveModal } from "./ResolveModal";
 
 const STAGE_LABELS = ["Intake", "Verify", "Assemble", "Submit", "Review", "Approved"] as const;
 
@@ -154,6 +155,15 @@ export function ClinicianRequestDetail(): React.JSX.Element {
   const params = useParams<{ id: string }>();
   const reqId = params.id ?? "";
   const [copied, setCopied] = React.useState(false);
+  const [resolveOpen, setResolveOpen] = React.useState(false);
+  const [resolveLabel, setResolveLabel] = React.useState("");
+  const [resolveStatus, setResolveStatus] = React.useState<"verified" | "pending" | "warning" | "error">("warning");
+
+  const openResolve = (label: string, status: "verified" | "pending" | "warning" | "error") => {
+    setResolveLabel(label);
+    setResolveStatus(status);
+    setResolveOpen(true);
+  };
 
   const req = DB[reqId] ?? null;
 
@@ -271,12 +281,12 @@ export function ClinicianRequestDetail(): React.JSX.Element {
                 <p className="text-[14px] text-foreground">{doc.name}</p>
               </div>
               {(doc.status === "error" || doc.status === "warning" || doc.status === "pending") && (
-                <Link
-                  to="/app/clinician/tasks"
-                  className="shrink-0 text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg transition-colors"
+                <button
+                  onClick={() => openResolve(doc.name, doc.status)}
+                  className="shrink-0 text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
                 >
                   Resolve
-                </Link>
+                </button>
               )}
             </div>
           ))}
@@ -303,12 +313,12 @@ export function ClinicianRequestDetail(): React.JSX.Element {
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     {(item.status === "error" || item.status === "warning" || item.status === "pending") && (
-                      <Link
-                        to="/app/clinician/tasks"
-                        className="text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg transition-colors"
+                      <button
+                        onClick={() => openResolve(item.label, item.status)}
+                        className="text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
                       >
                         Resolve
-                      </Link>
+                      </button>
                     )}
                     <span className="text-[13px] text-text-secondary tabular-nums">{item.time}</span>
                   </div>
@@ -318,6 +328,14 @@ export function ClinicianRequestDetail(): React.JSX.Element {
           ))}
         </div>
       </div>
+
+      {/* Resolve modal */}
+      <ResolveModal
+        open={resolveOpen}
+        onClose={() => setResolveOpen(false)}
+        itemLabel={resolveLabel}
+        itemStatus={resolveStatus}
+      />
     </div>
   );
 }

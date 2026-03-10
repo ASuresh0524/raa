@@ -1,51 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { Dot } from "./ui-components";
 import { Search, X, ArrowLeft } from "lucide-react";
-import { listPassports } from "../api";
 
 const providers = [
-  { id: "1", name: "Dr. Sarah Chen", specialty: "Internal Medicine", facility: "Main Campus", pct: 93, blockers: 0, exp: 1, stage: "Active", status: "verified" as const },
-  { id: "2", name: "Dr. James Wilson", specialty: "Cardiology", facility: "Main Campus", pct: 78, blockers: 1, exp: 0, stage: "In review", status: "pending" as const },
-  { id: "3", name: "Dr. Maria Santos", specialty: "Pediatrics", facility: "East Clinic", pct: 85, blockers: 0, exp: 1, stage: "Active", status: "verified" as const },
-  { id: "4", name: "Dr. Robert Kim", specialty: "Orthopedics", facility: "Main Campus", pct: 60, blockers: 2, exp: 1, stage: "Blocked", status: "error" as const },
-  { id: "5", name: "Dr. Lisa Park", specialty: "Dermatology", facility: "West Clinic", pct: 72, blockers: 1, exp: 0, stage: "Verify", status: "pending" as const },
-  { id: "6", name: "Dr. Ahmed Hassan", specialty: "Neurology", facility: "Main Campus", pct: 95, blockers: 0, exp: 0, stage: "Active", status: "verified" as const },
-  { id: "7", name: "Dr. Emily Taylor", specialty: "Family Medicine", facility: "East Clinic", pct: 100, blockers: 0, exp: 0, stage: "Active", status: "verified" as const },
-  { id: "8", name: "Dr. Michael Brown", specialty: "Psychiatry", facility: "West Clinic", pct: 88, blockers: 0, exp: 2, stage: "Active", status: "warning" as const },
+  { id: "1", name: "Dr. Sarah Chen", type: "MD" as const, specialty: "Internal Medicine", facility: "Main Campus", pct: 93, blockers: 0, exp: 1, stage: "Active", status: "verified" as const },
+  { id: "2", name: "Dr. James Wilson", type: "MD" as const, specialty: "Cardiology", facility: "Main Campus", pct: 78, blockers: 1, exp: 0, stage: "In review", status: "pending" as const },
+  { id: "3", name: "Dr. Maria Santos", type: "MD" as const, specialty: "Pediatrics", facility: "East Clinic", pct: 85, blockers: 0, exp: 1, stage: "Active", status: "verified" as const },
+  { id: "4", name: "Dr. Robert Kim", type: "MD" as const, specialty: "Orthopedics", facility: "Main Campus", pct: 60, blockers: 2, exp: 1, stage: "Blocked", status: "error" as const },
+  { id: "5", name: "Lisa Park", type: "RN" as const, specialty: "Nurse Practitioner", facility: "West Clinic", pct: 72, blockers: 1, exp: 0, stage: "Verify", status: "pending" as const },
+  { id: "6", name: "Dr. Ahmed Hassan", type: "MD" as const, specialty: "Neurology", facility: "Main Campus", pct: 95, blockers: 0, exp: 0, stage: "Active", status: "verified" as const },
+  { id: "7", name: "Emily Taylor", type: "RN" as const, specialty: "Registered Nurse", facility: "East Clinic", pct: 100, blockers: 0, exp: 0, stage: "Active", status: "verified" as const },
+  { id: "8", name: "Karen Mitchell", type: "RN" as const, specialty: "Licensed Practical Nurse", facility: "West Clinic", pct: 88, blockers: 0, exp: 2, stage: "Active", status: "warning" as const },
 ];
 
 export function OrgProviders() {
   const [q, setQ] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const [remoteProviders, setRemoteProviders] = useState<typeof providers | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await listPassports();
-        const mapped = (data || []).map((p: any, idx: number) => ({
-          id: p.clinician_id || String(idx + 1),
-          name: p.identity?.legal_name || "Unnamed Clinician",
-          specialty: p.board_certifications?.[0]?.specialty || "—",
-          facility: p.enrollment?.practice_locations?.[0]?.name || "—",
-          pct: Math.round((p.quality_report?.completeness_score || 0.75) * 100),
-          blockers: 0,
-          exp: 0,
-          stage: "Active",
-          status: "verified" as const,
-        }));
-        setRemoteProviders(mapped.length ? mapped : null);
-      } catch (e: any) {
-        setError(e.message || "Failed to load providers");
-      }
-    })();
-  }, []);
-
-  const source = remoteProviders || providers;
-
-  const filtered = source.filter(
+  const filtered = providers.filter(
     (p) => p.name.toLowerCase().includes(q.toLowerCase()) || p.specialty.toLowerCase().includes(q.toLowerCase())
   );
 
@@ -59,7 +32,7 @@ export function OrgProviders() {
       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 mb-8">
         <div>
           <h1 className="text-[22px] text-foreground tracking-[-0.02em]">Providers</h1>
-          <p className="text-[15px] text-muted-foreground mt-1">{source.length} in roster</p>
+          <p className="text-[15px] text-muted-foreground mt-1">{providers.length} in roster</p>
         </div>
         <button
           onClick={() => setAddOpen(true)}
@@ -79,9 +52,6 @@ export function OrgProviders() {
           className="w-full bg-surface-elevated border border-border rounded-xl pl-10 pr-4 py-3 text-[15px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all"
         />
       </div>
-      {error && (
-        <div className="text-[13px] text-red mb-4">{error}</div>
-      )}
 
       {/* Table */}
       <div className="overflow-x-auto bg-surface-elevated border border-border rounded-xl">
@@ -101,7 +71,14 @@ export function OrgProviders() {
               <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-secondary/30 transition-colors">
                 <td className="py-4 px-5">
                   <Link to={`/app/org/providers/${p.id}`} className="group">
-                    <p className="text-[15px] text-foreground group-hover:underline underline-offset-2 decoration-muted-foreground/30">{p.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[15px] text-foreground group-hover:underline underline-offset-2 decoration-muted-foreground/30">{p.name}</p>
+                      <span className={`inline-flex items-center text-[10px] tracking-[0.06em] px-1.5 py-px rounded border shrink-0 ${
+                        p.type === "MD"
+                          ? "text-muted-foreground border-border"
+                          : "text-muted-foreground border-border bg-foreground/[0.04]"
+                      }`}>{p.type}</span>
+                    </div>
                     <p className="text-[14px] text-muted-foreground">{p.specialty}</p>
                   </Link>
                 </td>

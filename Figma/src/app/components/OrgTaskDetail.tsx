@@ -5,6 +5,7 @@ import { Link, useParams, useNavigate } from "react-router";
 import { Dot, SectionLabel } from "./ui-components";
 import { toast } from "sonner";
 import { ActionModal, AssignModal, UploadModal } from "./UploadModal";
+import { ResolveModal } from "./ResolveModal";
 
 interface InvestigationStep {
   source: string;
@@ -241,6 +242,8 @@ export function OrgTaskDetail() {
   const [uploadModalOpen, setUploadModalOpen] = React.useState(false);
   const [assignee, setAssignee] = React.useState<string | null>(null);
   const [resolved, setResolved] = React.useState(false);
+  const [stepResolveOpen, setStepResolveOpen] = React.useState(false);
+  const [stepResolveLabel, setStepResolveLabel] = React.useState("");
 
   if (!task) {
     return (
@@ -403,7 +406,10 @@ export function OrgTaskDetail() {
                   <div className="flex items-center gap-3 shrink-0">
                     {(step.status === "error" || step.status === "warning" || step.status === "pending") && (
                       <button
-                        onClick={() => toast.success("Resolving", { description: step.source })}
+                        onClick={() => {
+                          setStepResolveOpen(true);
+                          setStepResolveLabel(step.source);
+                        }}
                         className="text-[13px] text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
                       >
                         Resolve
@@ -418,7 +424,15 @@ export function OrgTaskDetail() {
 
           {/* Actions */}
           <div className="bg-surface-elevated border border-border rounded-xl p-5">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="flex items-center gap-3">
+              {task.modalType === "request-upload" && (
+                <button
+                  onClick={() => setUploadModalOpen(true)}
+                  className="text-[13px] text-muted-foreground hover:text-foreground border border-border/60 hover:border-border hover:bg-secondary/50 px-3.5 py-2 rounded-md cursor-pointer transition-colors"
+                >
+                  Upload directly
+                </button>
+              )}
               <button
                 onClick={() => setAssignModalOpen(true)}
                 className="text-[13px] text-text-secondary hover:text-foreground px-3 py-2 rounded-md cursor-pointer transition-colors"
@@ -426,22 +440,12 @@ export function OrgTaskDetail() {
                 {assignee ? `Reassign (${assignee})` : "Assign"}
               </button>
               <div className="flex-1" />
-              <div className="flex items-center gap-2">
-                {task.modalType === "request-upload" && (
-                  <button
-                    onClick={() => setUploadModalOpen(true)}
-                    className="text-[13px] text-muted-foreground hover:text-foreground border border-border/60 hover:border-border hover:bg-secondary/50 px-3.5 py-2 rounded-md cursor-pointer transition-colors"
-                  >
-                    Upload directly
-                  </button>
-                )}
-                <button
-                  onClick={() => setActionModalOpen(true)}
-                  className="text-[13px] bg-foreground text-background px-4 py-2 rounded-md hover:opacity-90 transition-opacity cursor-pointer"
-                >
-                  {task.action}
-                </button>
-              </div>
+              <button
+                onClick={() => setActionModalOpen(true)}
+                className="text-[13px] bg-foreground text-background px-4 py-2 rounded-md hover:opacity-90 transition-opacity cursor-pointer"
+              >
+                {task.action}
+              </button>
             </div>
           </div>
         </>
@@ -482,6 +486,13 @@ export function OrgTaskDetail() {
           "Document must be current and unexpired",
           "Must include provider name and dates",
         ]}
+      />
+
+      {/* Step Resolve Modal */}
+      <ResolveModal
+        open={stepResolveOpen}
+        onClose={() => setStepResolveOpen(false)}
+        itemLabel={stepResolveLabel}
       />
     </div>
   );
