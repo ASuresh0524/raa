@@ -39,7 +39,10 @@ from .models import (
     WorkflowStatus,
     WorkflowStatusResponse,
     AuthorizationRequest,
+    FormPopulateRequest,
+    FormPopulateResponse,
 )
+from .forms import populate_state_form
 
 
 def updated_workflow(db: Session, workflow_id: str, workflow: Workflow) -> None:
@@ -479,3 +482,16 @@ def get_quality_report(clinician_id: str, db: Session = Depends(get_db)) -> Qual
     
     passport = Passport(**db_passport.passport_data)
     return agents.generate_quality_report(passport)
+
+
+@app.post("/api/forms/populate", response_model=FormPopulateResponse)
+def populate_state_form_endpoint(payload: FormPopulateRequest, db: Session = Depends(get_db)) -> FormPopulateResponse:
+    """
+    Populate state-specific credentialing form fields using passport data.
+    """
+    db_passport = get_passport_db(db, payload.clinician_id)
+    if not db_passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    passport = Passport(**db_passport.passport_data)
+    filled = populate_state_form(payload.state, passport)
+    return FormPopulateResponse(**filled)

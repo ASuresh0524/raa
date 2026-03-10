@@ -306,6 +306,17 @@ class WorkflowStatusResponse(BaseModel):
     audit_events: List[dict] = Field(default_factory=list)
 
 
+class FormPopulateRequest(BaseModel):
+    clinician_id: str
+    state: str
+
+
+class FormPopulateResponse(BaseModel):
+    state: str
+    form_name: str
+    fields: dict
+
+
 class AuthorizationRequest(BaseModel):
     destination_id: str
     destination_type: str
