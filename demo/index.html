@@ -156,13 +156,19 @@
       const API_BASE = apiOverride || 'https://raa-j914.onrender.com';
       let selectedClinician = null;
 
+      function buildUrl(path) {
+        if (!path.startsWith("/")) path = `/${path}`;
+        return API_BASE + path;
+      }
+
       async function api(path, options) {
-        const res = await fetch(API_BASE + path, {
+        const res = await fetch(buildUrl(path), {
           headers: { 'Content-Type': 'application/json' },
           ...options,
         });
         if (!res.ok) {
-          throw new Error(await res.text());
+          const text = await res.text();
+          throw new Error(text || `API error ${res.status}`);
         }
         return res.json();
       }

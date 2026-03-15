@@ -1,10 +1,11 @@
 import { ArrowLeft } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useParams } from "react-router";
 import { Dot, SectionLabel } from "./ui-components";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { UploadModal } from "./UploadModal";
 import { ResolveModal } from "./ResolveModal";
 import { toast } from "sonner";
+import { getPassport } from "../api";
 
 const timeline = [
   { label: "CA Medical License verified", detail: "CA Medical Board — primary source", time: "2h", status: "verified" as const },
@@ -82,12 +83,17 @@ const INITIAL_CRED_STATES: CredState[] = [
 ];
 
 export function OrgProviderDetail() {
+  const params = useParams<{ id: string }>();
+  const clinicianId = params.id ?? "";
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploaded, setUploaded] = useState(false);
   const [activeMetric, setActiveMetric] = useState<MetricFilter>(null);
   const [uploadTarget, setUploadTarget] = useState<string | null>(null);
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolveLabel, setResolveLabel] = useState("");
+  const [providerName, setProviderName] = useState("Dr. Sarah Chen");
+  const [providerNpi, setProviderNpi] = useState("1234567890");
+  const [providerSpecialty, setProviderSpecialty] = useState("Internal Medicine");
 
   // Credentialing states
   const [credStates, setCredStates] = useState<CredState[]>(INITIAL_CRED_STATES);
@@ -112,6 +118,42 @@ export function OrgProviderDetail() {
       searchInputRef.current.focus();
     }
   }, [stateDropdownOpen]);
+
+  useEffect(() => {
+    let ignore = false;
+    if (!clinicianId) return;
+    getPassport(clinicianId)
+      .then((data: any) => {
+        if (ignore) return;
+        const passport = data?.passport || data;
+        if (!passport) return;
+        setProviderName(passport?.identity?.legal_name || providerName);
+        setProviderNpi(
+          passport?.enrollment?.practice_locations?.[0]?.npi ||
+          passport?.identity?.npi ||
+          providerNpi
+        );
+        setProviderSpecialty(passport?.enrollment?.specialties?.[0] || providerSpecialty);
+        const licenseStates = Array.isArray(passport?.licenses?.state_licenses)
+          ? passport.licenses.state_licenses
+          : [];
+        if (licenseStates.length > 0) {
+          setCredStates(
+            licenseStates.map((lic: any) => ({
+              state: lic?.state || "Unknown",
+              status: lic?.status === "active" ? "active" : "pending",
+              progress: lic?.verified ? 100 : 60,
+            }))
+          );
+        }
+      })
+      .catch((err: any) => {
+        toast.error("Failed to load passport", { description: String(err?.message || err) });
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [clinicianId, providerName, providerNpi, providerSpecialty]);
 
   const addCredState = useCallback((stateName: string) => {
     if (credStates.some((s) => s.state === stateName)) return;
@@ -169,12 +211,12 @@ export function OrgProviderDetail() {
       <div className="mb-10 flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-[22px] text-foreground tracking-[-0.02em]">Dr. Sarah Chen</h1>
+            <h1 className="text-[22px] text-foreground tracking-[-0.02em]">{providerName}</h1>
             <span className="inline-flex items-center text-[11px] tracking-[0.04em] text-muted-foreground border border-border rounded px-1.5 py-0.5">
               MD
             </span>
           </div>
-          <p className="text-[15px] text-muted-foreground mt-1">NPI 1234567890 &middot; Internal Medicine</p>
+          <p className="text-[15px] text-muted-foreground mt-1">NPI {providerNpi} &middot; {providerSpecialty}</p>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-[15px] text-muted-foreground tabular-nums">93% verified</span>

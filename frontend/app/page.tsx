@@ -7,13 +7,19 @@ type WorkflowStatus = any
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
+function buildPath(path: string) {
+  if (!path.startsWith("/")) path = `/${path}`;
+  return path.startsWith("/api") ? path : `/api${path}`;
+}
+
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${path.startsWith('/api') ? path : `/api${path}`}`, {
+  const res = await fetch(buildPath(path), {
     headers: { 'Content-Type': 'application/json' },
     ...options,
   })
   if (!res.ok) {
-    throw new Error(await res.text())
+    const text = await res.text()
+    throw new Error(text || `API error ${res.status}`)
   }
   return (await res.json()) as T
 }

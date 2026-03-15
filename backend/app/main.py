@@ -494,4 +494,24 @@ def populate_state_form_endpoint(payload: FormPopulateRequest, db: Session = Dep
         raise HTTPException(status_code=404, detail="Passport not found")
     passport = Passport(**db_passport.passport_data)
     filled = populate_state_form(payload.state, passport)
+    if payload.workflow_id:
+        db_wf = get_workflow_db(db, payload.workflow_id)
+        if not db_wf:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        workflow = Workflow(**db_wf.workflow_data)
+        evidence = workflow.evidence_bundle or {}
+        forms = evidence.get("populated_forms", [])
+        forms.append(
+            {
+                "state": filled.get("state"),
+                "form_name": filled.get("form_name"),
+                "fields": jsonable_encoder(filled.get("fields", {})),
+                "populated_at": datetime.utcnow().isoformat(),
+            }
+        )
+        evidence["populated_forms"] = forms
+        evidence["latest_populated_form"] = forms[-1]
+        workflow.evidence_bundle = evidence
+        workflow.updated_at = datetime.utcnow()
+        update_workflow(db, payload.workflow_id, workflow)
     return FormPopulateResponse(**filled)

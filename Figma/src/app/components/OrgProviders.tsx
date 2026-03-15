@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Dot } from "./ui-components";
 import { Search, X, ArrowLeft } from "lucide-react";
+import { listPassports } from "../api";
+import { toast } from "sonner";
 
 const providers = [
   { id: "1", name: "Dr. Sarah Chen", type: "MD" as const, specialty: "Internal Medicine", facility: "Main Campus", pct: 93, blockers: 0, exp: 1, stage: "Active", status: "verified" as const },
@@ -14,11 +16,47 @@ const providers = [
   { id: "8", name: "Karen Mitchell", type: "RN" as const, specialty: "Licensed Practical Nurse", facility: "West Clinic", pct: 88, blockers: 0, exp: 2, stage: "Active", status: "warning" as const },
 ];
 
+type ProviderRow = typeof providers[number];
+
 export function OrgProviders() {
   const [q, setQ] = useState("");
+  const [rows, setRows] = useState<ProviderRow[]>(providers);
   const [addOpen, setAddOpen] = useState(false);
 
-  const filtered = providers.filter(
+  useEffect(() => {
+    let ignore = false;
+    listPassports()
+      .then((data: any[]) => {
+        if (ignore) return;
+        if (!Array.isArray(data) || data.length === 0) return;
+        const mapped: ProviderRow[] = data.map((p, idx) => {
+          const name = p?.identity?.legal_name || p?.identity?.full_name || p?.clinician_id || `Clinician ${idx + 1}`;
+          const specialty = p?.enrollment?.specialties?.[0] || "Clinician";
+          const facility = p?.enrollment?.practice_locations?.[0]?.name || "—";
+          return {
+            id: p?.clinician_id || `${idx + 1}`,
+            name,
+            type: "MD",
+            specialty,
+            facility,
+            pct: 100,
+            blockers: 0,
+            exp: 0,
+            stage: "Active",
+            status: "verified",
+          };
+        });
+        setRows(mapped);
+      })
+      .catch((err: any) => {
+        toast.error("Failed to load providers", { description: String(err?.message || err) });
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const filtered = rows.filter(
     (p) => p.name.toLowerCase().includes(q.toLowerCase()) || p.specialty.toLowerCase().includes(q.toLowerCase())
   );
 
@@ -32,7 +70,7 @@ export function OrgProviders() {
       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 mb-8">
         <div>
           <h1 className="text-[22px] text-foreground tracking-[-0.02em]">Providers</h1>
-          <p className="text-[15px] text-muted-foreground mt-1">{providers.length} in roster</p>
+          <p className="text-[15px] text-muted-foreground mt-1">{rows.length} in roster</p>
         </div>
         <button
           onClick={() => setAddOpen(true)}

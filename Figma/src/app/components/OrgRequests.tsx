@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { X, ArrowLeft, Check, Search, ChevronRight } from "lucide-react";
 import { Dot } from "./ui-components";
+import { demoWorkflow, getPassport, listWorkflows, populateStateForm, seedDemoPassport } from "../api";
+import { toast } from "sonner";
 
 const stages = ["Intake", "Verify", "Assemble", "Submit", "Review", "Approved"];
 
@@ -91,6 +93,9 @@ export function OrgRequests() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [populatedForm, setPopulatedForm] = useState<any | null>(null);
+  const [populateLoading, setPopulateLoading] = useState(false);
+  const [flattenedFields, setFlattenedFields] = useState<{ key: string; value: string }[]>([]);
 
   // Wizard selections
   const [selectedClinician, setSelectedClinician] = useState<typeof clinicians[0] | null>(null);
@@ -109,6 +114,8 @@ export function OrgRequests() {
     setClinicianSearch("");
     setDestSearch("");
     setShowSuccess(false);
+    setPopulatedForm(null);
+    setFlattenedFields([]);
   };
 
   const openWizard = () => {
@@ -125,21 +132,103 @@ export function OrgRequests() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const submitRequest = () => {
+  const statusToStage = (status: string) => {
+    switch (status) {
+      case "completed":
+        return 5;
+      case "running":
+        return 2;
+      case "exception":
+        return 3;
+      case "pending":
+      default:
+        return 0;
+    }
+  };
+
+  useEffect(() => {
+    let ignore = false;
+    listWorkflows()
+      .then((data: any[]) => {
+        if (ignore) return;
+        if (!Array.isArray(data) || data.length === 0) return;
+        const mapped: Request[] = data.map((w, idx) => ({
+          id: w?.workflow_id || `WF-${idx + 1}`,
+          type: w?.destination_type ? `${w.destination_type[0]?.toUpperCase()}${w.destination_type.slice(1)} request` : "Credentialing request",
+          dest: w?.destination_id || "Destination",
+          provider: w?.clinician_id || "Clinician",
+          date: new Date(w?.created_at || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          stage: statusToStage(w?.status),
+          initiatedBy: "Valley Health Group",
+        }));
+        setRequests(mapped);
+      })
+      .catch((err: any) => {
+        toast.error("Failed to load requests", { description: String(err?.message || err) });
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const getStateFromDestination = (destName: string) => {
+    const d = destName.toLowerCase();
+    if (d.includes("california") || d.includes("ca")) return "CA";
+    if (d.includes("new york") || d.includes("ny")) return "NY";
+    if (d.includes("florida") || d.includes("fl")) return "FL";
+    return "CA";
+  };
+
+  const flatten = (obj: any, prefix = ""): { key: string; value: string }[] => {
+    if (obj == null) return [{ key: prefix || "value", value: "" }];
+    if (Array.isArray(obj)) {
+      return obj.flatMap((v, i) => flatten(v, `${prefix}[${i}]`));
+    }
+    if (typeof obj === "object") {
+      return Object.entries(obj).flatMap(([k, v]) => {
+        const next = prefix ? `${prefix}.${k}` : k;
+        return flatten(v, next);
+      });
+    }
+    return [{ key: prefix || "value", value: String(obj) }];
+  };
+
+  const submitRequest = async () => {
     if (!selectedClinician || !selectedType || !selectedDest) return;
 
-    const newId = `REQ-${String(requests.length + 1).padStart(3, "0")}`;
-    const newReq: Request = {
-      id: newId,
-      type: selectedType.name,
-      dest: selectedDest.name,
-      provider: selectedClinician.name,
-      date: "Mar 4",
-      stage: 0,
-    };
-
-    setRequests([newReq, ...requests]);
-    setShowSuccess(true);
+    try {
+      setPopulateLoading(true);
+      await seedDemoPassport();
+      const wf: any = await demoWorkflow();
+      const passport = await getPassport("clinician-001").catch(() => null as any);
+      const licenseState = passport?.passport?.licenses?.state_licenses?.[0]?.state;
+      const state = licenseState || getStateFromDestination(selectedDest.name);
+      const populated = await populateStateForm("clinician-001", state, wf?.workflow_id);
+      setPopulatedForm(populated);
+      const flattened = flatten(populated?.fields || {});
+      setFlattenedFields(flattened);
+      if (wf?.workflow_id) {
+        localStorage.setItem(
+          `populated_form_${wf.workflow_id}`,
+          JSON.stringify({ form: populated, flattened })
+        );
+      }
+      const newReq: Request = {
+        id: wf?.workflow_id || `REQ-${String(requests.length + 1).padStart(3, "0")}`,
+        type: selectedType.name,
+        dest: selectedDest.name,
+        provider: selectedClinician.name,
+        date: "Mar 4",
+        stage: 0,
+        initiatedBy: "Valley Health Group",
+      };
+      setRequests([newReq, ...requests]);
+      setShowSuccess(true);
+    } catch (err: any) {
+      toast.error("Failed to create request", { description: String(err?.message || err) });
+    } finally {
+      setPopulateLoading(false);
+    }
   };
 
   const canAdvance = () => {
@@ -265,6 +354,22 @@ export function OrgRequests() {
                     </div>
                   </div>
                   <p className="text-[13px] text-text-secondary">The credentialing agent will begin processing automatically.</p>
+                  {populatedForm && (
+                    <div className="bg-surface-elevated border border-border rounded-lg p-4 text-left mt-4">
+                      <p className="text-[14px] text-foreground mb-2">{populatedForm.form_name}</p>
+                      <div className="space-y-1.5 max-h-56 overflow-auto pr-2">
+                        {flattenedFields.map((field) => (
+                          <div key={field.key} className="flex justify-between gap-4">
+                            <span className="text-[12px] text-muted-foreground">{field.key}</span>
+                            <span className="text-[12px] text-foreground text-right break-all max-w-[60%]">
+                              {field.value}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[12px] text-text-secondary mt-2">Auto-populated from the passport on submit.</p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -476,14 +581,14 @@ export function OrgRequests() {
                       if (step < 4) setStep(step + 1);
                       else submitRequest();
                     }}
-                    disabled={!canAdvance()}
+                    disabled={!canAdvance() || populateLoading}
                     className={`text-[14px] px-5 py-2.5 rounded-lg transition-opacity cursor-pointer ${
-                      canAdvance()
+                      canAdvance() && !populateLoading
                         ? "bg-foreground text-background hover:opacity-90"
                         : "bg-foreground/30 text-background/50 cursor-not-allowed"
                     }`}
                   >
-                    {step < 4 ? "Continue" : "Start workflow"}
+                    {step < 4 ? "Continue" : populateLoading ? "Starting..." : "Start workflow"}
                   </button>
                 </>
               )}

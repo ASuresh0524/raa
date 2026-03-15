@@ -6,6 +6,7 @@ import { Dot } from "./ui-components";
 import { toast } from "sonner";
 import { UploadModal } from "./UploadModal";
 import { ResolveModal } from "./ResolveModal";
+import { getWorkflow } from "../api";
 
 const STAGE_LIST = ["Intake", "Verify", "Assemble", "Submit", "Review", "Approved"] as const;
 
@@ -184,8 +185,110 @@ export function OrgRequestView(): React.JSX.Element {
   const [uploadOpen, setUploadOpen] = React.useState(false);
   const [resolveOpen, setResolveOpen] = React.useState(false);
   const [resolveDoc, setResolveDoc] = React.useState<DocEntry | null>(null);
+  const [liveReq, setLiveReq] = React.useState<ReqRecord | null>(null);
+  const [populatedPacket, setPopulatedPacket] = React.useState<{ form: any; flattened: { key: string; value: string }[] } | null>(null);
 
-  const req = DB[reqId] ?? null;
+  React.useEffect(() => {
+    let ignore = false;
+    if (!reqId) return;
+    getWorkflow(reqId)
+      .then((data: any) => {
+        if (ignore) return;
+        const wf = data?.workflow || data;
+        if (!wf) return;
+        const statusToStage = (status: string) => {
+          switch (status) {
+            case "completed":
+              return 5;
+            case "running":
+              return 2;
+            case "exception":
+              return 3;
+            case "pending":
+            default:
+              return 0;
+          }
+        };
+        const statusToActivity = (status: string) => {
+          switch (status) {
+            case "completed":
+              return "verified";
+            case "running":
+              return "pending";
+            case "exception":
+              return "warning";
+            case "pending":
+            default:
+              return "pending";
+          }
+        };
+        const timeline = Array.isArray(data?.timeline) ? data.timeline : [];
+        const activity: ActivityEntry[] = timeline.map((t: any) => ({
+          label: t?.agent_name || t?.step_id || "Workflow step",
+          detail: t?.status || "pending",
+          time: t?.completed_at
+            ? new Date(t.completed_at).toLocaleString()
+            : t?.started_at
+              ? new Date(t.started_at).toLocaleString()
+              : "—",
+          status: statusToActivity(t?.status),
+        }));
+        const docsFromBundle = Array.isArray(wf?.evidence_bundle?.documents) ? wf.evidence_bundle.documents : [];
+        const populated = wf?.evidence_bundle?.latest_populated_form || null;
+        if (populated?.fields) {
+          const flattened = Object.entries(populated.fields).flatMap(([k, v]) => {
+            if (v && typeof v === "object") {
+              return Object.entries(v).map(([sk, sv]) => ({
+                key: `${k}.${sk}`,
+                value: Array.isArray(sv) ? sv.join(", ") : String(sv),
+              }));
+            }
+            return [{ key: k, value: Array.isArray(v) ? v.join(", ") : String(v) }];
+          });
+          setPopulatedPacket({ form: populated, flattened });
+        }
+        const documents: DocEntry[] = docsFromBundle.map((d: any) => ({
+          name: d?.file_name || d?.document_type || "Document",
+          status: "verified",
+        }));
+        setLiveReq({
+          id: wf.workflow_id || reqId,
+          type: wf.destination_type ? `${wf.destination_type[0]?.toUpperCase()}${wf.destination_type.slice(1)} request` : "Credentialing request",
+          dest: wf.destination_id || "Destination",
+          destDetail: wf.destination_id || "—",
+          provider: wf.clinician_id || "Clinician",
+          providerNpi: "—",
+          specialty: "—",
+          date: new Date(wf.created_at || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          stage: statusToStage(wf.status),
+          initiatedBy: "Valley Health Group",
+          activity: activity.length > 0 ? activity : [
+            { label: "Workflow created", detail: "Awaiting execution", time: "—", status: "pending" },
+          ],
+          documents: documents.length > 0 ? documents : [
+            { name: "Passport packet", status: "pending" },
+          ],
+        });
+      })
+      .catch((err: any) => {
+        toast.error("Failed to load request", { description: String(err?.message || err) });
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [reqId]);
+
+  const req = liveReq || DB[reqId] || null;
+  React.useEffect(() => {
+    if (!reqId) return;
+    try {
+      const raw = localStorage.getItem(`populated_form_${reqId}`);
+      if (!raw) return;
+      if (!populatedPacket) setPopulatedPacket(JSON.parse(raw));
+    } catch (_e) {
+      setPopulatedPacket(null);
+    }
+  }, [reqId, populatedPacket]);
 
   if (!req) {
     return (
@@ -319,6 +422,20 @@ export function OrgRequestView(): React.JSX.Element {
             + Add document
           </button>
         </div>
+        {populatedPacket && (
+          <div className="bg-surface-elevated border border-border rounded-xl p-5 mb-4">
+            <p className="text-[13px] text-text-secondary uppercase tracking-wide mb-3">Auto-populated packet</p>
+            <p className="text-[15px] text-foreground mb-2">{populatedPacket.form?.form_name || "Credentialing Packet"}</p>
+            <div className="space-y-1.5 max-h-64 overflow-auto pr-2">
+              {populatedPacket.flattened.map((field) => (
+                <div key={field.key} className="flex justify-between gap-4">
+                  <span className="text-[12px] text-muted-foreground">{field.key}</span>
+                  <span className="text-[12px] text-foreground text-right break-all max-w-[60%]">{field.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="bg-surface-elevated border border-border rounded-xl divide-y divide-border">
           {req.documents.map((doc, idx) => (
             <div key={idx} className="flex items-center justify-between px-5 py-3.5">

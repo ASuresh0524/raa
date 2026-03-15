@@ -7,6 +7,7 @@ import { ResolveModal } from "./ResolveModal";
 import { FixResubmitWizard } from "./FixResubmitWizard";
 import { toast } from "sonner";
 import { useNavigate, Link } from "react-router";
+import { seedDemoPassport, demoWorkflow, getWorkflow } from "../api";
 
 interface TimelineEntry {
   label: string;
@@ -100,6 +101,9 @@ export function ClinicianDashboard() {
   const [fixResubmitWizardTarget, setFixResubmitWizardTarget] = useState<{
     id: string; payer: string; credential: string; reason: string; rejectedDate: string; originalConf: string;
   } | null>(null);
+  const [workflowId, setWorkflowId] = useState<string | null>(null);
+  const [workflowStatus, setWorkflowStatus] = useState<any | null>(null);
+  const [workflowLoading, setWorkflowLoading] = useState(false);
 
   // Inline state adder for post-consent view
   const [showAddState, setShowAddState] = useState(false);
@@ -133,6 +137,32 @@ export function ClinicianDashboard() {
     setShowAddState(false);
     setAddStateSearch("");
     toast.success("State added", { description: `${state} added to credentialing` });
+  };
+
+  const refreshWorkflow = async (id: string) => {
+    try {
+      const status = await getWorkflow(id);
+      setWorkflowStatus(status);
+    } catch (err: any) {
+      toast.error("Workflow refresh failed", { description: String(err?.message || err) });
+    }
+  };
+
+  const startLiveWorkflow = async () => {
+    setWorkflowLoading(true);
+    try {
+      await seedDemoPassport();
+      const wf: any = await demoWorkflow();
+      const id = wf?.workflow_id;
+      setWorkflowId(id || null);
+      if (id) {
+        await refreshWorkflow(id);
+      }
+    } catch (err: any) {
+      toast.error("Failed to start workflow", { description: String(err?.message || err) });
+    } finally {
+      setWorkflowLoading(false);
+    }
   };
 
   const removeState = (state: string) => {
@@ -402,6 +432,7 @@ export function ClinicianDashboard() {
                       setShowStateSelector(false);
                       setStateSearch("");
                       start();
+                      startLiveWorkflow();
                     }}
                     disabled={selectedStates.size === 0}
                     className={`text-[14px] px-5 py-2.5 rounded-lg transition-opacity cursor-pointer ${
@@ -468,6 +499,42 @@ export function ClinicianDashboard() {
             </div>
           </button>
         ))}
+      </div>
+
+      {/* Live workflow (backend) */}
+      <div className="bg-surface-elevated border border-border rounded-xl p-5 mb-8 mt-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[15px] text-foreground">Live workflow (backend)</p>
+            <p className="text-[13px] text-muted-foreground mt-0.5">
+              {workflowId ? `Workflow ID ${workflowId}` : "Start credentialing to create a workflow"}
+            </p>
+          </div>
+          <button
+            onClick={() => workflowId && refreshWorkflow(workflowId)}
+            disabled={!workflowId}
+            className={`text-[13px] px-3 py-2 rounded-lg border transition-colors ${
+              workflowId ? "border-border hover:bg-secondary cursor-pointer" : "border-border/40 text-muted-foreground/50 cursor-not-allowed"
+            }`}
+          >
+            Refresh
+          </button>
+        </div>
+        <div className="mt-4 text-[13px] text-muted-foreground">
+          {workflowLoading && <p>Starting workflow…</p>}
+          {!workflowLoading && workflowStatus?.workflow && (
+            <p>
+              Status: <span className="text-foreground">{workflowStatus.workflow.status}</span>
+              {" · "}Progress: <span className="text-foreground">{Math.round(workflowStatus.progress_percentage || 0)}%</span>
+            </p>
+          )}
+          {!workflowLoading && !workflowStatus?.workflow && (
+            <p>Not connected yet.</p>
+          )}
+          <p className="mt-2">
+            If you want me to hook this into the Figma UI next (auto-populate forms on submit), say the word and I’ll wire it in.
+          </p>
+        </div>
       </div>
 
       {/* Expanded metric detail */}

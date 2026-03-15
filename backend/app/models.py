@@ -309,6 +309,7 @@ class WorkflowStatusResponse(BaseModel):
 class FormPopulateRequest(BaseModel):
     clinician_id: str
     state: str
+    workflow_id: Optional[str] = None
 
 
 class FormPopulateResponse(BaseModel):
