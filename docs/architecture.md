@@ -1,5 +1,9 @@
 # Credentialing Passport for Clinicians - Architecture Diagram
 
+## Strategic direction
+
+Product positioning, competitive framing, scope (privileging / enrollment / reassignment from day one), **Provider Truth Graph**, **first billable date** intelligence, closed-loop rejections, and NCQA / Joint Commission–aligned modules are documented in **`docs/product-strategy.md`**. Use that doc as the source of truth for *what* we optimize for; this file describes *how* the platform is structured technically.
+
 ## System Architecture Overview
 
 ```mermaid
@@ -369,6 +373,13 @@ graph TD
 - Background monitoring for expirations
 - Proactive updates and alerts
 - Instant packet generation for new destinations
+
+### 6. **Target architecture extensions** (see `product-strategy.md`)
+- **Provider Truth Graph** — structured claims with source, confidence, conflicts, expiration, dependencies
+- **First billable date engine** — best / likely / risk-adjusted dates by payer, site, specialty, supervision; work prioritization
+- **Truth adjudication** — resolve conflicting sources with explanation and downstream impact
+- **Credentialing Committee Copilot**, **Temporary Privileges Orchestrator**, **FPPE/OPPE** workflows, **audit simulator**
+- **Directory accuracy** and **network intelligence** as a later expansion wedge (OIG/CMS directory themes)
 
 ## Technology Stack Recommendations
 

@@ -1,4 +1,6 @@
-# RAA Roadmap Notes
+# Roadmap notes
+
+> **Credentialing Passport:** strategic pillars and build mapping live in **`docs/product-strategy.md`**. The sections below are **legacy RAA** (radiology assistant) experiments kept for reference.
 
 ## Direct-to-Physician (D2P) Strategies
 

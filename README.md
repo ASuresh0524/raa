@@ -117,6 +117,10 @@ Set the `NEXT_PUBLIC_API_BASE_URL` in Vercel to that backend URL.
 4. **Exception Review**: Credentialing staff review only true exceptions and final approvals
 5. **Continuous Monitoring**: System monitors for expirations and maintains readiness
 
+## Product strategy
+
+See `docs/product-strategy.md` for market context, competitor framing (Verifiable / Medallion / Symplr), scope (privileging, enrollment, reassignment), Provider Truth Graph, first billable date intelligence, and NCQA / Joint Commission–aligned modules.
+
 ## Architecture
 
 See `docs/architecture.md` for detailed system architecture diagrams including:
