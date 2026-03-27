@@ -95,7 +95,7 @@ def run_workflow(db: Session, workflow: Workflow, passport: Passport, payer_name
         return {"status": "ok", "submission": agents.payer_enrollment_submission_stub(payer_name)}
 
     def run_guardrails():
-        return {"status": "ok", "guardrails": agents.billing_scheduling_guardrails_stub()}
+        return {"status": "ok", "guardrails": agents.billing_scheduling_guardrails_stub(passport)}
 
     agent_jobs: list[tuple[str, Callable[[], dict]]] = [
         ("Data Quality & Consistency Agent", run_quality),
@@ -199,12 +199,18 @@ def run_workflow(db: Session, workflow: Workflow, passport: Passport, payer_name
     if results.get("Payer Enrollment Submission Agent", {}).get("submission"):
         submissions.append(results["Payer Enrollment Submission Agent"]["submission"])
 
+    gr = results.get("Billing & Scheduling Guardrail Agent", {}) or {}
+    guardrails_payload = gr.get("guardrails") if isinstance(gr, dict) else None
+    truth_preview = agents.build_provider_truth_preview(passport)
+
     evidence = agents.build_evidence_bundle(
         passport=passport,
         requirements=requirements,
         quality=quality_report,
         verifications=verifications,
         submissions=submissions,
+        guardrails=guardrails_payload,
+        truth_claims=truth_preview,
     )
 
     workflow.exceptions = exceptions

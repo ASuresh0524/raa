@@ -69,6 +69,20 @@ npm run dev
 
 Open `http://localhost:5173` in your browser.
 
+### HTML demo (no Node; full local workflow)
+
+Uses the same backend and exercises passports, workflows, task runs, audit events, **first billable–style guardrails**, **provider truth preview**, evidence download, and **state form populate**.
+
+```bash
+# Terminal 1: API (same as above)
+cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+
+# Terminal 2: serve demo/ over HTTP (do not use file://)
+cd demo && python3 -m http.server 8080
+```
+
+Open **`http://127.0.0.1:8080`**. The page defaults to `http://127.0.0.1:8000` for the API; use **Test connection** to verify. For a remote API, append `?api=https://your-backend.example.com` to the demo URL.
+
 During development:
 - Frontend reads `NEXT_PUBLIC_API_BASE_URL` (defaults to `http://localhost:8000`)
 - Backend CORS allows local + Vercel domains

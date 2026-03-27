@@ -521,19 +521,112 @@ def payer_enrollment_submission_stub(payer_name: str) -> dict:
     }
 
 
-def billing_scheduling_guardrails_stub() -> dict:
+def billing_scheduling_guardrails_stub(passport: Optional[Passport] = None) -> dict:
     """
-    Billing & Scheduling Guardrail Agent (stub)
-    In production: compute earliest safe start date by site/payer based on effective dates.
+    Billing & Scheduling Guardrail Agent (demo)
+    Surfaces first-billable style intelligence used in local demos (not legal advice).
     """
     now = datetime.utcnow()
+    today = now.date()
+    npi = None
+    primary_state = None
+    if passport:
+        for loc in passport.enrollment.practice_locations:
+            if loc.npi:
+                npi = loc.npi
+                break
+        if passport.licenses.state_licenses:
+            primary_state = passport.licenses.state_licenses[0].state
+
+    # Demo horizons: best / likely / risk-adjusted first billable (by payer)
+    best_days, likely_days, risk_days = 14, 21, 38
+    if passport and passport.licenses.state_licenses:
+        soonest_exp = min((sl.expiration_date for sl in passport.licenses.state_licenses), default=today)
+        days_to_exp = (soonest_exp - today).days
+        if days_to_exp < 90:
+            risk_days += 30
+
+    def add_days(d: int) -> str:
+        return (today + timedelta(days=d)).isoformat()
+
+    payers = [
+        {
+            "payer": "Medicare (Part B / PECOS)",
+            "site": primary_state or "Primary practice",
+            "best_case_first_billable": add_days(best_days + 7),
+            "likely_first_billable": add_days(likely_days + 10),
+            "risk_adjusted_first_billable": add_days(risk_days + 14),
+            "can_bill_now": False,
+            "blockers": ["PECOS enrollment effective date pending", "Reassignment signatures if applicable"],
+        },
+        {
+            "payer": "Commercial — representative payer",
+            "site": primary_state or "Primary practice",
+            "best_case_first_billable": add_days(best_days),
+            "likely_first_billable": add_days(likely_days),
+            "risk_adjusted_first_billable": add_days(risk_days),
+            "can_bill_now": False,
+            "blockers": ["Credentialing committee approval", "Payer roster effective date"],
+        },
+    ]
+
     return {
         "generated_at": now.isoformat(),
-        "rules": [
-            {"scope": "all", "can_schedule": False, "reason": "Awaiting payer effective dates"},
+        "npi_on_passport": npi,
+        "primary_license_state": primary_state,
+        "safe_billable_status": "not_yet",
+        "summary": "Demo: scheduling/billing should wait until payer effective dates and privilege/enrollment gates clear.",
+        "first_billable_by_payer": payers,
+        "operational_rules": [
+            {"scope": "scheduling", "can_schedule_new_patients": False, "reason": "Awaiting clean enrollment + privilege effective dates"},
+            {"scope": "billing", "can_submit_claims": False, "reason": "No active payer effective date on file"},
         ],
-        "earliest_safe_start_date": (now + timedelta(days=30)).date().isoformat(),
+        "earliest_safe_global_start": add_days(likely_days),
     }
+
+
+def build_provider_truth_preview(passport: Passport) -> list[dict]:
+    """
+    Lightweight Provider Truth Graph preview for demos: structured claims with source + confidence.
+    """
+    claims: list[dict] = []
+    claims.append(
+        {
+            "claim_id": "identity.legal_name",
+            "field": "Legal name",
+            "value": passport.identity.legal_name,
+            "source": "passport.clinician_submitted",
+            "verification_status": "self_attested",
+            "confidence": 0.85,
+            "conflicts": [],
+        }
+    )
+    loc = passport.enrollment.practice_locations[0] if passport.enrollment.practice_locations else None
+    if loc and loc.npi:
+        claims.append(
+            {
+                "claim_id": "enrollment.npi",
+                "field": "NPI",
+                "value": loc.npi,
+                "source": "passport.enrollment",
+                "verification_status": "pending_psv",
+                "confidence": 0.7,
+                "conflicts": [],
+            }
+        )
+    for sl in passport.licenses.state_licenses[:3]:
+        claims.append(
+            {
+                "claim_id": f"license.{sl.state}",
+                "field": f"State license ({sl.state})",
+                "value": f"{sl.license_number} · exp {sl.expiration_date}",
+                "source": "passport.licenses",
+                "verification_status": "verified" if sl.verified else "pending_psv",
+                "confidence": 0.92 if sl.verified else 0.55,
+                "conflicts": [],
+            }
+        )
+    return claims
 
 
 def build_evidence_bundle(
@@ -542,12 +635,14 @@ def build_evidence_bundle(
     quality: QualityReport,
     verifications: list[dict],
     submissions: list[dict],
+    guardrails: Optional[dict] = None,
+    truth_claims: Optional[list[dict]] = None,
 ) -> dict:
     """
     Audit Trail Agent
     Produces an audit-ready evidence bundle with provenance.
     """
-    return {
+    out = {
         "generated_at": datetime.utcnow().isoformat(),
         "passport_snapshot": passport.model_dump(mode="json"),
         "requirements": requirements.model_dump(mode="json"),
@@ -560,3 +655,8 @@ def build_evidence_bundle(
             {"name": "NUCC Taxonomy", "url": "https://nucc.org/images/stories/CSV/nucc_taxonomy_231.csv"},
         ],
     }
+    if guardrails is not None:
+        out["billing_guardrails"] = guardrails
+    if truth_claims is not None:
+        out["provider_truth_preview"] = truth_claims
+    return out

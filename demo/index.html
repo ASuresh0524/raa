@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Credentialing Passport – HTML Demo</title>
+    <title>Credentialing Passport – Local Demo</title>
     <style>
       :root {
         --bg: #0b1220;
@@ -23,21 +23,19 @@
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         background: radial-gradient(circle at top left, #0f172a 0, #020617 60%, #020617 100%);
         color: var(--text);
+        line-height: 1.45;
       }
-      .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
+      .container { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
       .hero {
         background: linear-gradient(135deg, #0f172a, #020617);
         border: 1px solid var(--border);
         border-radius: 16px;
         padding: 22px 26px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 24px;
+        margin-bottom: 18px;
         box-shadow: 0 18px 45px rgba(15, 23, 42, 0.85);
       }
-      .hero h1 { font-size: 22px; margin-bottom: 4px; }
-      .hero p { color: var(--muted); font-size: 14px; }
+      .hero h1 { font-size: 22px; margin-bottom: 8px; }
+      .hero p { color: var(--muted); font-size: 14px; max-width: 720px; }
       .pill {
         display: inline-flex;
         align-items: center;
@@ -45,11 +43,14 @@
         font-size: 12px;
         padding: 6px 12px;
         border-radius: 999px;
-        border: 1px solid rgba(34, 197, 94, 0.5);
-        color: #86efac;
-        background: rgba(34, 197, 94, 0.1);
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        color: var(--muted);
+        background: rgba(2, 6, 23, 0.5);
+        margin-top: 12px;
       }
-      .grid { display: grid; gap: 18px; margin-top: 22px; }
+      .pill.ok { border-color: rgba(34, 197, 94, 0.5); color: #86efac; background: rgba(34, 197, 94, 0.1); }
+      .pill.bad { border-color: rgba(239, 68, 68, 0.5); color: #fecaca; background: rgba(239, 68, 68, 0.1); }
+      .grid { display: grid; gap: 18px; margin-top: 18px; }
       .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .card {
         background: var(--card);
@@ -64,14 +65,17 @@
         background: linear-gradient(135deg, var(--accent), var(--accent-2));
         color: white; border: none; border-radius: 999px;
         padding: 8px 14px; font-weight: 600; cursor: pointer;
+        font-size: 13px;
       }
       .button.secondary {
         background: rgba(148, 163, 184, 0.2);
         border: 1px solid rgba(148, 163, 184, 0.5);
       }
+      .button:disabled { opacity: 0.45; cursor: not-allowed; }
       .input, .select {
         width: 100%; padding: 10px 12px; border-radius: 10px;
         border: 1px solid var(--border); background: rgba(2, 6, 23, 0.6); color: var(--text);
+        font-size: 14px;
       }
       .label { font-size: 12px; color: var(--muted); margin-bottom: 6px; display: block; }
       .list { display: flex; flex-direction: column; gap: 12px; }
@@ -79,219 +83,520 @@
         display: flex; justify-content: space-between; align-items: center;
         padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border);
         background: rgba(2, 6, 23, 0.7);
+        cursor: pointer;
       }
+      .list-item:hover { border-color: rgba(59, 130, 246, 0.45); }
+      .list-item.active { border-color: rgba(59, 130, 246, 0.7); background: rgba(59, 130, 246, 0.08); }
       .badge { padding: 4px 8px; border-radius: 999px; font-size: 11px; border: 1px solid var(--border); color: var(--muted); }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+      th { color: var(--muted); font-weight: 500; }
+      .mono { font-family: ui-monospace, monospace; font-size: 11px; word-break: break-all; }
+      .scroll { max-height: 220px; overflow: auto; }
+      .scroll-lg { max-height: 320px; overflow: auto; }
+      pre { font-size: 11px; background: rgba(2, 6, 23, 0.8); padding: 12px; border-radius: 10px; overflow: auto; max-height: 200px; }
       @media (max-width: 900px) {
         .grid-2 { grid-template-columns: 1fr; }
-        .hero { flex-direction: column; align-items: flex-start; }
       }
-      .error { color: #fecaca; margin-top: 10px; }
+      .error { color: #fecaca; margin-top: 10px; font-size: 13px; }
+      .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+      ol.steps { margin: 10px 0 0 18px; color: var(--muted); font-size: 13px; }
+      ol.steps li { margin-bottom: 6px; }
     </style>
   </head>
   <body>
     <div class="container">
       <div class="hero">
-        <div>
-          <h1>Credentialing Passport for Clinicians</h1>
-          <p>Fill once, reuse everywhere. Orchestrated credentialing with audit‑ready evidence bundles.</p>
+        <h1>Credentialing Passport — local demo</h1>
+        <p>
+          This page exercises the real FastAPI backend: seed passport, authorize a destination, run the orchestrator,
+          inspect <strong>task runs</strong>, <strong>audit events</strong>, <strong>provider truth preview</strong>,
+          <strong>first billable–style guardrails</strong>, and <strong>state form auto-fill</strong>. All data is demo-only.
+        </p>
+        <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+          <label class="label" style="margin:0;width:100%;">API base URL</label>
+          <input class="input" id="apiBaseInput" style="max-width:420px;flex:1;min-width:200px;" placeholder="http://127.0.0.1:8000" />
+          <button class="button secondary" type="button" id="testConnBtn">Test connection</button>
+          <button class="button secondary" type="button" id="saveApiBtn">Save</button>
         </div>
-        <span class="pill">● Live Demo</span>
+        <div id="connPill" class="pill">API not checked yet</div>
+      </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <h3>Run locally (required)</h3>
+        <p class="muted">Do not open this file as <code class="mono">file://</code> — browsers block cross-origin requests. Serve this folder over HTTP.</p>
+        <ol class="steps">
+          <li><strong>Terminal 1 — API:</strong> <span class="mono">cd backend && uvicorn app.main:app --reload --host 127.0.0.1 --port 8000</span></li>
+          <li><strong>Terminal 2 — static server:</strong> <span class="mono">cd demo && python3 -m http.server 8080</span></li>
+          <li><strong>Browser:</strong> open <span class="mono">http://127.0.0.1:8080</span> (or <span class="mono">http://localhost:8080</span>)</li>
+        </ol>
+        <p class="muted" style="margin-top:10px;">Remote API: append <span class="mono">?api=https://your-backend.example.com</span> to the URL.</p>
       </div>
 
       <div class="grid grid-2">
         <div class="card">
           <h3>Passports</h3>
-          <p class="muted">Seed demo and load clinician passports.</p>
-          <div style="margin-top:12px;">
-            <button class="button secondary" id="refreshBtn">Refresh</button>
-            <button class="button" id="seedBtn" style="margin-left:8px;">Seed Demo Passport</button>
+          <p class="muted">Load from the database or seed the demo clinician.</p>
+          <div class="row-actions">
+            <button class="button secondary" type="button" id="refreshBtn">Refresh list</button>
+            <button class="button" type="button" id="seedBtn">Seed demo passport</button>
           </div>
           <div class="list" id="passportList" style="margin-top:16px;"></div>
         </div>
         <div class="card">
-          <h3>Selected Passport</h3>
-          <p class="muted">Identity + enrollment snapshot.</p>
-          <div id="selectedPassport" class="muted" style="margin-top:10px;">Select a passport.</div>
-          <div style="margin-top:14px;">
-            <label class="label">Destination ID</label>
-            <input class="input" id="destId" placeholder="demo-hospital" />
-            <label class="label" style="margin-top:8px;">Destination Type</label>
-            <select class="select" id="destType">
-              <option value="hospital">Hospital</option>
-              <option value="group">Group</option>
-              <option value="staffing_firm">Staffing Firm</option>
-              <option value="telehealth">Telehealth</option>
-            </select>
-            <div style="margin-top:10px;">
-              <button class="button" id="startWorkflowBtn">Start Workflow</button>
-              <button class="button secondary" id="runDemoWorkflowBtn" style="margin-left:8px;">Run Demo Workflow</button>
-            </div>
+          <h3>Selected passport & workflow</h3>
+          <p class="muted">Pick a clinician, set destination, optional payer for submission stub.</p>
+          <div id="selectedPassport" class="muted" style="margin-top:10px;">Select a passport from the list.</div>
+          <label class="label" style="margin-top:12px;">Destination ID</label>
+          <input class="input" id="destId" value="metro-general-hospital" />
+          <label class="label" style="margin-top:8px;">Destination type</label>
+          <select class="select" id="destType">
+            <option value="hospital">Hospital (credentialing + privileging path)</option>
+            <option value="group">Medical group</option>
+            <option value="staffing_firm">Staffing firm</option>
+            <option value="telehealth">Telehealth network</option>
+          </select>
+          <label class="label" style="margin-top:8px;">Payer name (optional — drives enrollment submission stub)</label>
+          <input class="input" id="payerName" placeholder="e.g. Blue Cross Blue Shield MA" value="Blue Cross Blue Shield MA" />
+          <div class="row-actions">
+            <button class="button" type="button" id="startWorkflowBtn">Authorize &amp; run workflow</button>
+            <button class="button secondary" type="button" id="runDemoWorkflowBtn">One-click demo workflow</button>
           </div>
         </div>
       </div>
 
       <div class="grid grid-2">
         <div class="card">
-          <h3>Workflow Status</h3>
-          <p class="muted">Task runs, audit trail, evidence bundle.</p>
-          <label class="label">Workflow ID</label>
-          <input class="input" id="workflowId" placeholder="wf-..." />
-          <div style="margin-top:10px;">
-            <button class="button secondary" id="refreshWorkflowBtn">Refresh Status</button>
-          </div>
-          <div id="workflowStatus" class="muted" style="margin-top:12px;">No workflow loaded.</div>
+          <h3>Safe billable status (demo)</h3>
+          <p class="muted">From Billing &amp; Scheduling Guardrail output in the evidence bundle — illustrative only.</p>
+          <div id="guardrailsPanel" class="muted" style="margin-top:10px;">Run a workflow to see first-billable style dates and blockers.</div>
         </div>
         <div class="card">
-          <h3>Evidence Bundle</h3>
-          <p class="muted">Download audit-ready evidence.</p>
-          <div id="evidencePanel" class="muted" style="margin-top:12px;">Run a workflow to generate.</div>
+          <h3>Provider truth preview (demo)</h3>
+          <p class="muted">Structured claims with source and confidence — foundation for a full Provider Truth Graph.</p>
+          <div class="scroll-lg" id="truthPanel" style="margin-top:10px;"></div>
         </div>
       </div>
+
+      <div class="card" style="margin-top:18px;">
+        <h3>State packet auto-fill</h3>
+        <p class="muted">Calls <span class="mono">POST /api/forms/populate</span> and persists to the workflow evidence bundle when a workflow ID is set.</p>
+        <div class="grid grid-2" style="margin-top:12px;">
+          <div>
+            <label class="label">Board / packet state</label>
+            <select class="select" id="formState">
+              <option value="MA">MA (passport primary license)</option>
+              <option value="NY">NY</option>
+              <option value="CA">CA</option>
+              <option value="FL">FL</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <button class="button" type="button" id="populateBtn">Populate &amp; attach to workflow</button>
+          </div>
+        </div>
+        <pre id="populateOut" style="margin-top:12px;display:none;"></pre>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:18px;">
+        <div class="card">
+          <h3>Workflow status</h3>
+          <p class="muted">Timeline, agents, audit trail, exceptions.</p>
+          <label class="label">Workflow ID</label>
+          <input class="input mono" id="workflowId" placeholder="wf-..." />
+          <div class="row-actions">
+            <button class="button secondary" type="button" id="refreshWorkflowBtn">Refresh status</button>
+          </div>
+          <div id="workflowSummary" class="muted" style="margin-top:12px;"></div>
+          <p class="muted" style="margin-top:12px;">Steps</p>
+          <div class="scroll" id="stepsPanel"></div>
+          <p class="muted" style="margin-top:12px;">Agent task runs</p>
+          <div class="scroll-lg" id="taskRunsPanel"></div>
+          <p class="muted" style="margin-top:12px;">Audit events (latest first)</p>
+          <div class="scroll" id="auditPanel"></div>
+          <div id="exceptionsPanel" style="margin-top:12px;"></div>
+        </div>
+        <div class="card">
+          <h3>Evidence bundle</h3>
+          <p class="muted">Audit-ready JSON: requirements, quality, verifications, citations.</p>
+          <div id="evidenceMeta" class="muted" style="margin-top:10px;"></div>
+          <div class="row-actions" style="margin-top:12px;">
+            <a class="button" id="evidenceDownload" style="display:none;text-decoration:none;text-align:center;" href="#" download>Download evidence.json</a>
+            <button class="button secondary" type="button" id="copyEvidenceBtn" style="display:none;">Copy JSON</button>
+          </div>
+          <p class="muted" style="margin-top:14px;">Latest populated form (from evidence)</p>
+          <pre id="populatedFormEvidence" style="margin-top:8px;max-height:160px;display:none;"></pre>
+        </div>
+      </div>
+
       <div id="error" class="error"></div>
     </div>
 
     <script>
-      const urlParams = new URLSearchParams(window.location.search);
-      const apiOverride = urlParams.get('api');
-      const API_BASE = apiOverride || 'https://raa-j914.onrender.com';
-      let selectedClinician = null;
+      (function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const apiFromQuery = urlParams.get('api');
+        const stored = sessionStorage.getItem('credentialing_demo_api_base');
+        const defaultLocal = 'http://127.0.0.1:8000';
+        let API_BASE = apiFromQuery || stored || defaultLocal;
 
-      function buildUrl(path) {
-        if (!path.startsWith("/")) path = `/${path}`;
-        return API_BASE + path;
-      }
+        let selectedClinicianId = null;
+        let lastEvidenceJson = '';
+        let lastStatus = null;
 
-      async function api(path, options) {
-        const res = await fetch(buildUrl(path), {
-          headers: { 'Content-Type': 'application/json' },
-          ...options,
-        });
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || `API error ${res.status}`);
+        const $ = (id) => document.getElementById(id);
+
+        function buildUrl(path) {
+          if (!path.startsWith('/')) path = '/' + path;
+          return API_BASE.replace(/\/$/, '') + path;
         }
-        return res.json();
-      }
 
-      const errorEl = document.getElementById('error');
-      function setError(msg) {
-        errorEl.textContent = msg || '';
-      }
+        async function api(path, options) {
+          const res = await fetch(buildUrl(path), {
+            headers: { 'Content-Type': 'application/json' },
+            ...options,
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || 'API error ' + res.status);
+          }
+          return res.json();
+        }
 
-      // Show API base in console for debugging
-      console.log('API_BASE:', API_BASE);
+        function setError(msg) {
+          $('error').textContent = msg || '';
+        }
 
-      async function refreshPassports() {
-        try {
-          setError('');
-          const list = await api('/api/passports');
-          const container = document.getElementById('passportList');
-          container.innerHTML = '';
-          if (!list.length) {
-            container.innerHTML = '<div class="muted">No passports yet.</div>';
+        function escapeHtml(s) {
+          if (s == null) return '';
+          return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        }
+
+        function setConn(ok, msg) {
+          const el = $('connPill');
+          el.textContent = msg;
+          el.className = 'pill ' + (ok ? 'ok' : 'bad');
+        }
+
+        async function testConnection() {
+          try {
+            const j = await api('/api/ping');
+            setConn(true, '● Connected — ' + (j.service || 'API') + ' ' + (j.version || ''));
+            setError('');
+          } catch (e) {
+            setConn(false, '● Cannot reach API — check URL and that uvicorn is running');
+            setError(e.message || String(e));
+          }
+        }
+
+        $('apiBaseInput').value = API_BASE;
+        $('saveApiBtn').onclick = () => {
+          API_BASE = $('apiBaseInput').value.trim() || defaultLocal;
+          sessionStorage.setItem('credentialing_demo_api_base', API_BASE);
+          testConnection();
+        };
+        $('testConnBtn').onclick = testConnection;
+
+        async function refreshPassports() {
+          try {
+            setError('');
+            const list = await api('/api/passports');
+            const container = $('passportList');
+            container.innerHTML = '';
+            if (!list.length) {
+              container.innerHTML = '<div class="muted">No passports yet — click Seed demo passport.</div>';
+              return;
+            }
+            list.forEach((p) => {
+              const item = document.createElement('div');
+              item.className = 'list-item' + (selectedClinicianId === p.clinician_id ? ' active' : '');
+              const n = (p.licenses && p.licenses.state_licenses) ? p.licenses.state_licenses.length : 0;
+              item.innerHTML =
+                '<div><div style="font-weight:600">' + escapeHtml(p.identity && p.identity.legal_name) + '</div>' +
+                '<div class="muted mono">' + escapeHtml(p.clinician_id) + '</div></div>' +
+                '<span class="badge">' + n + ' licenses</span>';
+              item.onclick = () => selectPassport(p.clinician_id, item, list);
+              container.appendChild(item);
+            });
+          } catch (e) {
+            setError(e.message || 'Failed to refresh passports');
+          }
+        }
+
+        async function selectPassport(id, el, allList) {
+          selectedClinicianId = id;
+          document.querySelectorAll('.list-item').forEach((x) => x.classList.remove('active'));
+          if (el) el.classList.add('active');
+          try {
+            const data = await api('/api/passport/' + encodeURIComponent(id));
+            const p = data.passport;
+            const q = data.quality_report;
+            const npi = p.enrollment && p.enrollment.practice_locations && p.enrollment.practice_locations[0]
+              ? p.enrollment.practice_locations[0].npi
+              : '—';
+            const specs = (p.enrollment && p.enrollment.specialties) ? p.enrollment.specialties.join(', ') : '—';
+            let licRows = '';
+            (p.licenses && p.licenses.state_licenses || []).forEach((l) => {
+              licRows += '<tr><td>' + escapeHtml(l.state) + '</td><td class="mono">' + escapeHtml(l.license_number) + '</td><td>' + escapeHtml(String(l.expiration_date)) + '</td><td>' + escapeHtml(l.status) + '</td></tr>';
+            });
+            $('selectedPassport').innerHTML =
+              '<div><strong>' + escapeHtml(p.identity && p.identity.legal_name) + '</strong></div>' +
+              '<div class="muted">' + escapeHtml(p.identity && p.identity.email) + '</div>' +
+              '<div class="muted">NPI: ' + escapeHtml(npi) + ' · ' + escapeHtml(specs) + '</div>' +
+              (q ? '<div class="muted" style="margin-top:8px;">Quality completeness: <strong>' + Number(q.completeness_score).toFixed(0) + '%</strong> · issues: ' + (q.issues ? q.issues.length : 0) + '</div>' : '') +
+              (licRows ? '<table style="margin-top:10px;"><thead><tr><th>State</th><th>License</th><th>Expires</th><th>Status</th></tr></thead><tbody>' + licRows + '</tbody></table>' : '');
+          } catch (e) {
+            setError(e.message || 'Failed to load passport');
+          }
+        }
+
+        async function seedDemo() {
+          try {
+            await api('/api/demo/seed', { method: 'POST' });
+            await refreshPassports();
+            if (!selectedClinicianId) selectedClinicianId = 'clinician-001';
+            await selectPassport(selectedClinicianId);
+          } catch (e) {
+            setError(e.message || 'Seed failed');
+          }
+        }
+
+        async function startWorkflow() {
+          if (!selectedClinicianId) {
+            setError('Select a passport first (or seed demo).');
             return;
           }
-          list.forEach((p) => {
-            const item = document.createElement('div');
-            item.className = 'list-item';
-            item.innerHTML = `
-              <div>
-                <div style="font-weight:600">${p.identity?.legal_name || 'Unnamed'}</div>
-                <div class="muted">${p.clinician_id}</div>
-              </div>
-              <span class="badge">${(p.licenses?.state_licenses || []).length} licenses</span>
-            `;
-            item.onclick = () => selectPassport(p.clinician_id);
-            container.appendChild(item);
-          });
-        } catch (e) {
-          setError(e.message || 'Failed to refresh');
-        }
-      }
-
-      async function selectPassport(id) {
-        try {
-          const data = await api('/api/passport/' + id);
-          selectedClinician = data.passport.clinician_id;
-          const p = data.passport;
-          document.getElementById('selectedPassport').innerHTML = `
-            <div><strong>${p.identity?.legal_name || 'Unnamed'}</strong></div>
-            <div class="muted">${p.identity?.email || ''}</div>
-            <div class="muted">NPI: ${p.enrollment?.practice_locations?.[0]?.npi || '—'}</div>
-          `;
-        } catch (e) {
-          setError(e.message || 'Failed to load passport');
-        }
-      }
-
-      async function seedDemo() {
-        try {
-          await api('/api/demo/seed', { method: 'POST' });
-          await refreshPassports();
-        } catch (e) {
-          setError(e.message || 'Seed failed');
-        }
-      }
-
-      async function startWorkflow() {
-        if (!selectedClinician) {
-          setError('Select a passport first.');
-          return;
-        }
-        const destinationId = document.getElementById('destId').value || 'demo-hospital';
-        const destinationType = document.getElementById('destType').value || 'hospital';
-        try {
-          const wf = await api('/api/passport/' + selectedClinician + '/authorize', {
-            method: 'POST',
-            body: JSON.stringify({ destination_id: destinationId, destination_type: destinationType, scoped_permissions: [] }),
-          });
-          await api('/api/workflow/' + wf.workflow_id + '/run', { method: 'POST' });
-          document.getElementById('workflowId').value = wf.workflow_id;
-          await refreshWorkflow();
-        } catch (e) {
-          setError(e.message || 'Workflow failed');
-        }
-      }
-
-      async function runDemoWorkflow() {
-        try {
-          const wf = await api('/api/demo/workflow', { method: 'POST' });
-          document.getElementById('workflowId').value = wf.workflow_id;
-          await refreshWorkflow();
-        } catch (e) {
-          setError(e.message || 'Demo workflow failed');
-        }
-      }
-
-      async function refreshWorkflow() {
-        const id = document.getElementById('workflowId').value;
-        if (!id) return;
-        try {
-          const status = await api('/api/workflow/' + id);
-          document.getElementById('workflowStatus').textContent =
-            'Progress: ' + (status.progress_percentage || 0).toFixed(0) + '% | Status: ' + status.workflow.status;
-
-          const evidence = status.workflow.evidence_bundle;
-          const evidencePanel = document.getElementById('evidencePanel');
-          if (evidence) {
-            const blob = new Blob([JSON.stringify(evidence, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            evidencePanel.innerHTML = `<a class="button" href="${url}" download="evidence-${id}.json">Download Evidence</a>`;
-          } else {
-            evidencePanel.textContent = 'Run a workflow to generate.';
+          const destinationId = $('destId').value.trim() || 'metro-general-hospital';
+          const destinationType = $('destType').value || 'hospital';
+          const payer = $('payerName').value.trim() || null;
+          try {
+            const wf = await api('/api/passport/' + encodeURIComponent(selectedClinicianId) + '/authorize', {
+              method: 'POST',
+              body: JSON.stringify({
+                destination_id: destinationId,
+                destination_type: destinationType,
+                scoped_permissions: [],
+              }),
+            });
+            const runUrl = '/api/workflow/' + encodeURIComponent(wf.workflow_id) + '/run' +
+              (payer ? '?payer_name=' + encodeURIComponent(payer) : '');
+            await api(runUrl, { method: 'POST' });
+            $('workflowId').value = wf.workflow_id;
+            await refreshWorkflow();
+          } catch (e) {
+            setError(e.message || 'Workflow failed');
           }
-        } catch (e) {
-          setError(e.message || 'Failed to load workflow');
         }
-      }
 
-      document.getElementById('refreshBtn').onclick = refreshPassports;
-      document.getElementById('seedBtn').onclick = seedDemo;
-      document.getElementById('startWorkflowBtn').onclick = startWorkflow;
-      document.getElementById('runDemoWorkflowBtn').onclick = runDemoWorkflow;
-      document.getElementById('refreshWorkflowBtn').onclick = refreshWorkflow;
+        async function runDemoWorkflow() {
+          const dest = $('destId').value.trim() || 'demo-hospital';
+          const dtype = $('destType').value || 'hospital';
+          const payer = $('payerName').value.trim();
+          try {
+            let path = '/api/demo/workflow?destination_id=' + encodeURIComponent(dest) + '&destination_type=' + encodeURIComponent(dtype);
+            if (payer) path += '&payer_name=' + encodeURIComponent(payer);
+            const wf = await api(path, { method: 'POST' });
+            $('workflowId').value = wf.workflow_id;
+            selectedClinicianId = 'clinician-001';
+            await refreshPassports();
+            await selectPassport('clinician-001');
+            await refreshWorkflow();
+          } catch (e) {
+            setError(e.message || 'Demo workflow failed');
+          }
+        }
 
-      refreshPassports();
+        function renderGuardrails(ev) {
+          const panel = $('guardrailsPanel');
+          if (!ev || !ev.billing_guardrails) {
+            panel.textContent = 'Run a workflow to see first-billable style dates and blockers.';
+            return;
+          }
+          const g = ev.billing_guardrails;
+          let html = '<div style="margin-bottom:8px;"><strong>' + escapeHtml(g.safe_billable_status || '') + '</strong> — ' + escapeHtml(g.summary || '') + '</div>';
+          if (g.earliest_safe_global_start) {
+            html += '<div class="muted" style="margin-bottom:8px;">Earliest safe global start (demo): <strong>' + escapeHtml(g.earliest_safe_global_start) + '</strong></div>';
+          }
+          html += '<table><thead><tr><th>Payer</th><th>Likely first billable</th><th>Risk-adjusted</th><th>Blockers</th></tr></thead><tbody>';
+          (g.first_billable_by_payer || []).forEach((row) => {
+            html += '<tr><td>' + escapeHtml(row.payer) + '</td><td>' + escapeHtml(row.likely_first_billable) + '</td><td>' + escapeHtml(row.risk_adjusted_first_billable) + '</td><td>' + escapeHtml((row.blockers || []).join('; ')) + '</td></tr>';
+          });
+          html += '</tbody></table>';
+          panel.innerHTML = html;
+        }
+
+        function renderTruth(ev) {
+          const panel = $('truthPanel');
+          if (!ev || !ev.provider_truth_preview || !ev.provider_truth_preview.length) {
+            panel.innerHTML = '<span class="muted">No truth preview until a workflow has run.</span>';
+            return;
+          }
+          let html = '<table><thead><tr><th>Field</th><th>Value</th><th>Source</th><th>Confidence</th></tr></thead><tbody>';
+          ev.provider_truth_preview.forEach((c) => {
+            html += '<tr><td>' + escapeHtml(c.field) + '</td><td class="mono">' + escapeHtml(c.value) + '</td><td>' + escapeHtml(c.source) + '</td><td>' + (c.confidence != null ? Math.round(c.confidence * 100) + '%' : '—') + '</td></tr>';
+          });
+          html += '</tbody></table>';
+          panel.innerHTML = html;
+        }
+
+        function renderSteps(status) {
+          const el = $('stepsPanel');
+          const tl = status.timeline || [];
+          if (!tl.length) {
+            el.innerHTML = '<span class="muted">No steps</span>';
+            return;
+          }
+          let html = '<table><thead><tr><th>Agent</th><th>Status</th></tr></thead><tbody>';
+          tl.forEach((s) => {
+            html += '<tr><td>' + escapeHtml(s.agent_name) + '</td><td>' + escapeHtml(s.status) + '</td></tr>';
+          });
+          html += '</tbody></table>';
+          el.innerHTML = html;
+        }
+
+        function renderTaskRuns(status) {
+          const el = $('taskRunsPanel');
+          const runs = status.task_runs || [];
+          if (!runs.length) {
+            el.innerHTML = '<span class="muted">No task runs (run workflow first).</span>';
+            return;
+          }
+          let html = '<table><thead><tr><th>Agent</th><th>Status</th><th>Output (summary)</th></tr></thead><tbody>';
+          runs.forEach((tr) => {
+            let sum = '';
+            if (tr.output && tr.output.status) sum = tr.output.status;
+            if (tr.output && tr.output.guardrails) sum = 'guardrails ok';
+            if (tr.output && tr.output.nppes) sum = 'NPPES lookup';
+            if (tr.output && tr.output.submission) sum = 'payer submission stub';
+            html += '<tr><td>' + escapeHtml(tr.agent_name) + '</td><td>' + escapeHtml(tr.status) + '</td><td class="mono">' + escapeHtml(sum || JSON.stringify(tr.output || {}).slice(0, 120)) + '</td></tr>';
+          });
+          html += '</tbody></table>';
+          el.innerHTML = html;
+        }
+
+        function renderAudit(status) {
+          const el = $('auditPanel');
+          const evs = (status.audit_events || []).slice().reverse().slice(0, 12);
+          if (!evs.length) {
+            el.innerHTML = '<span class="muted">No audit events yet.</span>';
+            return;
+          }
+          let html = '<table><thead><tr><th>When</th><th>Actor</th><th>Action</th></tr></thead><tbody>';
+          evs.forEach((e) => {
+            html += '<tr><td class="mono">' + escapeHtml(e.created_at || '') + '</td><td>' + escapeHtml(e.actor) + '</td><td>' + escapeHtml(e.action) + '</td></tr>';
+          });
+          html += '</tbody></table>';
+          el.innerHTML = html;
+        }
+
+        async function refreshWorkflow() {
+          const id = $('workflowId').value.trim();
+          if (!id) return;
+          try {
+            setError('');
+            const status = await api('/api/workflow/' + encodeURIComponent(id));
+            lastStatus = status;
+            const w = status.workflow;
+            $('workflowSummary').innerHTML =
+              '<strong>Status:</strong> ' + escapeHtml(w.status) +
+              ' · <strong>Progress:</strong> ' + Math.round(status.progress_percentage || 0) + '%' +
+              ' · <strong>Destination:</strong> ' + escapeHtml(w.destination_id) + ' (' + escapeHtml(w.destination_type) + ')' +
+              (w.exceptions && w.exceptions.length ? '<div style="color:#fecaca;margin-top:6px;">Exceptions: ' + escapeHtml(w.exceptions.join(' | ')) + '</div>' : '');
+
+            const ex = $('exceptionsPanel');
+            if (w.exceptions && w.exceptions.length) {
+              ex.innerHTML = '<p class="muted">Workflow exceptions</p><ul style="margin-left:18px;color:#fecaca;font-size:13px;">' +
+                w.exceptions.map((x) => '<li>' + escapeHtml(x) + '</li>').join('') + '</ul>';
+            } else {
+              ex.innerHTML = '';
+            }
+
+            renderSteps(status);
+            renderTaskRuns(status);
+            renderAudit(status);
+
+            const ev = w.evidence_bundle;
+            const evidenceMeta = $('evidenceMeta');
+            const dl = $('evidenceDownload');
+            const copyBtn = $('copyEvidenceBtn');
+            const popEl = $('populatedFormEvidence');
+            if (ev) {
+              lastEvidenceJson = JSON.stringify(ev, null, 2);
+              evidenceMeta.textContent = 'Generated: ' + (ev.generated_at || '—') + ' · Citations: ' + ((ev.citations && ev.citations.length) || 0);
+              const blob = new Blob([lastEvidenceJson], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              dl.href = url;
+              dl.download = 'evidence-' + id + '.json';
+              dl.style.display = 'inline-block';
+              copyBtn.style.display = 'inline-block';
+              renderGuardrails(ev);
+              renderTruth(ev);
+              const latest = ev.latest_populated_form;
+              if (latest) {
+                popEl.textContent = JSON.stringify(latest, null, 2);
+                popEl.style.display = 'block';
+              } else {
+                popEl.style.display = 'none';
+              }
+            } else {
+              lastEvidenceJson = '';
+              evidenceMeta.textContent = 'No evidence bundle on this workflow yet.';
+              dl.style.display = 'none';
+              copyBtn.style.display = 'none';
+              renderGuardrails(null);
+              renderTruth(null);
+              popEl.style.display = 'none';
+            }
+          } catch (e) {
+            setError(e.message || 'Failed to load workflow');
+          }
+        }
+
+        $('populateBtn').onclick = async () => {
+          const state = $('formState').value;
+          const wfId = $('workflowId').value.trim();
+          const cid = selectedClinicianId || 'clinician-001';
+          try {
+            setError('');
+            const body = { clinician_id: cid, state: state };
+            if (wfId) body.workflow_id = wfId;
+            const res = await api('/api/forms/populate', {
+              method: 'POST',
+              body: JSON.stringify(body),
+            });
+            const pre = $('populateOut');
+            pre.style.display = 'block';
+            pre.textContent = JSON.stringify(res, null, 2);
+            if (wfId) await refreshWorkflow();
+          } catch (e) {
+            setError(e.message || 'Populate failed');
+          }
+        };
+
+        $('copyEvidenceBtn').onclick = async () => {
+          if (!lastEvidenceJson) return;
+          try {
+            await navigator.clipboard.writeText(lastEvidenceJson);
+            setError('');
+            $('evidenceMeta').textContent += ' — copied to clipboard';
+          } catch (_) {
+            setError('Could not copy to clipboard');
+          }
+        };
+
+        $('refreshBtn').onclick = refreshPassports;
+        $('seedBtn').onclick = seedDemo;
+        $('startWorkflowBtn').onclick = startWorkflow;
+        $('runDemoWorkflowBtn').onclick = runDemoWorkflow;
+        $('refreshWorkflowBtn').onclick = refreshWorkflow;
+
+        testConnection();
+        refreshPassports();
+      })();
     </script>
   </body>
 </html>
