@@ -41,8 +41,11 @@ from .models import (
     AuthorizationRequest,
     FormPopulateRequest,
     FormPopulateResponse,
+    PassportEmailRequest,
+    PassportEmailResponse,
 )
 from .forms import populate_state_form
+from . import email_service
 
 
 def updated_workflow(db: Session, workflow_id: str, workflow: Workflow) -> None:
@@ -88,6 +91,52 @@ app.add_middleware(
 def ping() -> dict[str, str]:
     """Basic readiness probe."""
     return {"status": "ok", "service": "Credentialing Passport API", "version": "1.0.0"}
+
+
+@app.get("/api/email/status")
+def email_status() -> dict:
+    """Whether SMTP is configured (actual sends) vs log-only mode."""
+    return {
+        "smtp_configured": email_service.smtp_configured(),
+        "mode": "smtp" if email_service.smtp_configured() else "log_only",
+        "hint": "Set SMTP_HOST (and SMTP_USER/SMTP_PASSWORD) to send real mail; otherwise emails are logged only.",
+    }
+
+
+@app.post("/api/email/send-passport", response_model=PassportEmailResponse)
+def send_passport_email(payload: PassportEmailRequest, db: Session = Depends(get_db)) -> PassportEmailResponse:
+    """
+    Send (or log) an email built from the clinician passport — e.g. summaries, nudges, workflow-complete notices.
+    """
+    db_passport = get_passport_db(db, payload.clinician_id)
+    if not db_passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+
+    passport = Passport(**db_passport.passport_data)
+    workflow = None
+    if payload.workflow_id:
+        db_wf = get_workflow_db(db, payload.workflow_id)
+        if not db_wf:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        if db_wf.clinician_id != payload.clinician_id:
+            raise HTTPException(status_code=400, detail="Workflow does not belong to this clinician")
+        workflow = Workflow(**db_wf.workflow_data)
+
+    subject, text_body, html_body = email_service.build_passport_summary_email(
+        passport,
+        payload.template,
+        workflow=workflow,
+        note=payload.note,
+    )
+    status, msg = email_service.send_html_email(payload.to, subject, text_body, html_body)
+    if status == "failed":
+        raise HTTPException(status_code=502, detail=msg)
+
+    return PassportEmailResponse(
+        status=status,
+        message=msg,
+        mode="smtp" if email_service.smtp_configured() else "log_only",
+    )
 
 
 @app.get("/api/passports", response_model=List[Passport])

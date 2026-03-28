@@ -83,6 +83,28 @@ cd demo && python3 -m http.server 8080
 
 Open **`http://127.0.0.1:8080`**. The page defaults to `http://127.0.0.1:8000` for the API; use **Test connection** to verify. For a remote API, append `?api=https://your-backend.example.com` to the demo URL.
 
+### Email bot (passport-based)
+
+The API can send HTML emails built from passport (and optional workflow) data:
+
+- `GET /api/email/status` — whether SMTP is configured
+- `POST /api/email/send-passport` — body: `{ "to", "clinician_id", "template", "workflow_id"?, "note"? }`  
+  Templates: `passport_summary`, `workflow_complete`, `credentialing_nudge`
+
+**Without SMTP**, messages are **logged only** (see the uvicorn terminal). To send real mail, set:
+
+| Variable | Example |
+|----------|---------|
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `587` (or `465` for SSL) |
+| `SMTP_USER` | your address |
+| `SMTP_PASSWORD` | app password |
+| `SMTP_FROM` | display/from address |
+| `SMTP_USE_TLS` | `true` (default for 587) |
+| `SMTP_SSL` | `true` when using port **465** |
+
+The HTML demo includes an **Email bot** card that calls this endpoint.
+
 During development:
 - Frontend reads `NEXT_PUBLIC_API_BASE_URL` (defaults to `http://localhost:8000`)
 - Backend CORS allows local + Vercel domains
@@ -122,6 +144,8 @@ Set the `NEXT_PUBLIC_API_BASE_URL` in Vercel to that backend URL.
 - `POST /api/documents/upload` – Upload supporting documents
 - `GET /api/requirements/{destination_id}` – Get requirements checklist
 - `POST /api/enrollment/submit` – Submit payer enrollment application
+- `GET /api/email/status` – SMTP configured vs log-only
+- `POST /api/email/send-passport` – Send passport/workflow HTML email
 
 ## Usage Workflow
 

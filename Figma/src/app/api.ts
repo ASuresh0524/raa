@@ -51,3 +51,20 @@ export function populateStateForm(clinicianId: string, state: string, workflowId
     body: JSON.stringify({ clinician_id: clinicianId, state, workflow_id: workflowId }),
   });
 }
+
+export function emailStatus() {
+  return request<{ smtp_configured: boolean; mode: string; hint: string }>("/api/email/status");
+}
+
+export function sendPassportEmail(payload: {
+  to: string;
+  clinician_id: string;
+  workflow_id?: string;
+  template?: "passport_summary" | "workflow_complete" | "credentialing_nudge";
+  note?: string;
+}) {
+  return request<{ status: string; message: string; mode: string }>("/api/email/send-passport", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

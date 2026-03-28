@@ -318,6 +318,22 @@ class FormPopulateResponse(BaseModel):
     fields: dict
 
 
+class PassportEmailRequest(BaseModel):
+    """Trigger an outbound email derived from passport (and optional workflow) data."""
+
+    to: EmailStr
+    clinician_id: str
+    workflow_id: Optional[str] = None
+    template: Literal["passport_summary", "workflow_complete", "credentialing_nudge"] = "passport_summary"
+    note: Optional[str] = None
+
+
+class PassportEmailResponse(BaseModel):
+    status: str  # sent | logged | failed
+    message: str
+    mode: Literal["smtp", "log_only"]
+
+
 class AuthorizationRequest(BaseModel):
     destination_id: str
     destination_type: str
