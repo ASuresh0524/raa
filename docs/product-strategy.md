@@ -129,6 +129,53 @@ A chat surface and lightweight local model can help **search, explanation, and w
 
 **NCQA** credentialing standards require verification of practitioner credentials through a **primary source**, a **recognized source**, or a **contracted agent** of the primary source—build PSV as a **first-class workflow**, not a checkbox.
 
+### 10. Pre-submission quality gate (“no lag” loop)
+
+Before packets hit a payer, committee, or third-party CVO, run an **automated pre-flight**: completeness, consistency, expiration, name/address alignment, and “will this get kicked back?” rules. Goal: **catch errors upstream** so clinicians and staff are not waiting on avoidable rejections and rework cycles.
+
+This connects directly to the **Data Quality & Consistency** layer and, at a higher level, to the **audit simulator** (weak / stale / incomplete file) before anything is transmitted.
+
+### 11. Employer / org document concierge (email + guidance)
+
+Many items cannot be self-sourced by the clinician (e.g., privilege letters, some HR attestations, facility-specific forms). The product should support:
+
+- **Targeted outreach** to the employer or medical staff office (email or in-app task) listing **exactly** what is missing and **why** it is needed for which workflow.  
+- **Guided retrieval**: for each document type, short **“how to obtain”** paths—e.g. which portal, which department, which primary source, sample wording—so coordinators are not guessing.
+
+This is complementary to the **Provider Intake Concierge** (clinician-facing) and the **closed-loop rejection** path (org-facing follow-up).
+
+---
+
+## Clinician-only mode: what they can do, what needs the org, and passport value anyway
+
+When **only the clinician** has the product, the passport must still be **worth paying for**. That requires three explicit artifacts:
+
+### A. Responsibility matrix (per workflow type)
+
+For each destination (hospital credentialing, payer enrollment, reassignment, etc.), show:
+
+| Category | Examples | Who must act |
+|----------|----------|----------------|
+| **Clinician-alone** | Identity attestations, CV, diplomas, licenses they hold, CAQH-style self-data, many PSV-triggered confirmations | Clinician |
+| **Org / employer** | Privilege verification letters, employment verification, facility contracts, some malpractice loss runs, reassignment acceptances, committee decisions | Organization |
+| **Joint / sequenced** | PECOS individual sign + **organizational reassignment signature** when applicable | Both, in order |
+
+Surface this in-product so expectations are clear and nothing is implied.
+
+### B. Verified outputs without Symplr on platform
+
+The clinician (or their delegate) must be able to **export** a **destination-ready package** even when the receiving org is not a customer:
+
+- **Structured data** (JSON / CSV) + **evidence bundle** (PDF or zipped receipts + citations)  
+- **Secure share link** or time-bound API access for the credentialing office  
+- **Mapped field packs** where we know the target: e.g. “Symplr import checklist,” “Medallion-style packet,” state board PDF populate (already directionally in form-populate)
+
+**Symplr and peers** will not always offer a clean public API; the practical path is often **documented export layouts**, **CSV column maps**, and **human-upload-ready** bundles—still high value if it cuts days of re-keying.
+
+### C. Temporary privileging (again, clinician + org story)
+
+**Temporary privileges** are a bridge when the org is slow but patient access matters. The **Temporary Privileges Orchestrator** (see below) should sit in the same matrix: eligibility, evidence, 120-day cap, FPPE kickoff—so “clinician-only software” still **feeds** the hospital with a defensible temp-priv packet the org can act on.
+
 ---
 
 ## Modules to include (hospital / accreditation alignment)
@@ -179,6 +226,23 @@ NCQA also emphasizes **ongoing monitoring** of sanctions, complaints, and qualit
 | Closed-loop rejection | Fix/resubmit UI patterns in Figma | Workflow states + automation for denial/remediation |
 | Directory / network | Data sources doc + future APIs | Directory sync + adequacy signals |
 | Committee / temp priv / FPPE-OPPE / audit sim | Not yet first-class modules | New agents + packet generators + survey simulation |
+| Pre-submission QA | Quality report + workflow gates (partial) | Hard “block send” rules + payer/committee-specific checklists |
+| Employer / org email bot | Passport-based email API (`/api/email/send-passport`) | Templated “missing docs” to employer MSO/HR, tracking + reminders |
+| Document finder guidance | Mostly manual / future | Per-requirement “how to obtain” content + links to sources |
+| Clinician vs org matrix + export | Evidence download, form populate | In-product matrix UI; Symplr-oriented CSV/PDF export packs |
+| Temporary privileging | Documented in strategy | Eligibility engine + evidence packet + FPPE trigger in workflow |
+
+---
+
+## Colleague input — summary
+
+The direction is coherent and **does get more involved as you peel the onion**—that is normal for credentialing because **multiple parties** (clinician, group, hospital, payer) have **different signing and sourcing rules**. The product stays tractable if we **anchor on**:
+
+1. **Provider Truth Graph** + **safe billable / first billable** (what to believe, when money can flow).  
+2. **Explicit clinician vs org responsibilities** + **export/interop** so the passport has value **without** the org on platform.  
+3. **Automation at the bottlenecks**: pre-scan before submit, employer nudges with guidance, closed-loop rejections, temp priv + FPPE where hospitals care.
+
+Chat-style AI is optional polish; **execution on truth, dates, packets, and loops** is the moat.
 
 ---
 

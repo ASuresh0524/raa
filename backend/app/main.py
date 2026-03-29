@@ -93,6 +93,59 @@ def ping() -> dict[str, str]:
     return {"status": "ok", "service": "Credentialing Passport API", "version": "1.0.0"}
 
 
+@app.get("/api/demo/document-guidance")
+def document_guidance_demo() -> dict:
+    """
+    Static guidance for the live HTML demo: who usually supplies each artifact and how to obtain it.
+    """
+    return {
+        "items": [
+            {
+                "id": "malpractice_coi",
+                "title": "Malpractice certificate of insurance",
+                "typically_provided_by": "Clinician (from carrier) or employer if tail covered",
+                "how_to_obtain": "Request current COI from your malpractice carrier portal (e.g. NORCAL, MedPro) or HR if hospital-sponsored. Ensure limits and dates match payer minimums.",
+            },
+            {
+                "id": "privilege_letter",
+                "title": "Hospital privilege verification letter",
+                "typically_provided_by": "Organization (Medical Staff Office)",
+                "how_to_obtain": "Ask the hospital Medical Staff Office for a verification of active privileges on letterhead. Often submitted through symplr/Verity or hospital credentialing portal.",
+            },
+            {
+                "id": "dea",
+                "title": "DEA registration",
+                "typically_provided_by": "Clinician",
+                "how_to_obtain": "Download from DEA Diversion; confirm address matches NPI practice location for payer matching.",
+            },
+            {
+                "id": "state_license",
+                "title": "State medical license",
+                "typically_provided_by": "Clinician (PSV from board)",
+                "how_to_obtain": "Verify via state board website or API where available (e.g. CA DCA search). Passport should store number + expiration.",
+            },
+            {
+                "id": "pecos_reassign",
+                "title": "PECOS enrollment + reassignment",
+                "typically_provided_by": "Joint: clinician signs; org signs reassignment acceptance",
+                "how_to_obtain": "Individual completes PECOS; group signs reassignment in PECOS when adding to Medicare billing entity. Credentialing team coordinates sequencing.",
+            },
+            {
+                "id": "references",
+                "title": "Professional references",
+                "typically_provided_by": "Clinician coordinates; peers respond",
+                "how_to_obtain": "Send secure questionnaire links to department chief or peers listed in work history; track in portal.",
+            },
+            {
+                "id": "temp_priv_packet",
+                "title": "Temporary privileges packet",
+                "typically_provided_by": "Organization decision; clinician supplies evidence",
+                "how_to_obtain": "Assemble clean license, DEA, core privileges request, FPPE plan. Joint Commission caps new applicant temp priv at 120 consecutive days — document rationale.",
+            },
+        ]
+    }
+
+
 @app.get("/api/email/status")
 def email_status() -> dict:
     """Whether SMTP is configured (actual sends) vs log-only mode."""
@@ -122,12 +175,18 @@ def send_passport_email(payload: PassportEmailRequest, db: Session = Depends(get
             raise HTTPException(status_code=400, detail="Workflow does not belong to this clinician")
         workflow = Workflow(**db_wf.workflow_data)
 
-    subject, text_body, html_body = email_service.build_passport_summary_email(
-        passport,
-        payload.template,
-        workflow=workflow,
-        note=payload.note,
-    )
+    if payload.template == "employer_missing_documents":
+        quality = agents.generate_quality_report(passport)
+        subject, text_body, html_body = email_service.build_employer_missing_docs_email(
+            passport, quality, workflow=workflow, note=payload.note
+        )
+    else:
+        subject, text_body, html_body = email_service.build_passport_summary_email(
+            passport,
+            payload.template,
+            workflow=workflow,
+            note=payload.note,
+        )
     status, msg = email_service.send_html_email(payload.to, subject, text_body, html_body)
     if status == "failed":
         raise HTTPException(status_code=502, detail=msg)

@@ -60,7 +60,11 @@ export function sendPassportEmail(payload: {
   to: string;
   clinician_id: string;
   workflow_id?: string;
-  template?: "passport_summary" | "workflow_complete" | "credentialing_nudge";
+  template?:
+    | "passport_summary"
+    | "workflow_complete"
+    | "credentialing_nudge"
+    | "employer_missing_documents";
   note?: string;
 }) {
   return request<{ status: string; message: string; mode: string }>("/api/email/send-passport", {

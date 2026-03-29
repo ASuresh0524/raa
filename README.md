@@ -89,7 +89,8 @@ The API can send HTML emails built from passport (and optional workflow) data:
 
 - `GET /api/email/status` — whether SMTP is configured
 - `POST /api/email/send-passport` — body: `{ "to", "clinician_id", "template", "workflow_id"?, "note"? }`  
-  Templates: `passport_summary`, `workflow_complete`, `credentialing_nudge`
+  Templates: `passport_summary`, `workflow_complete`, `credentialing_nudge`, `employer_missing_documents` (uses pre-flight / quality issues)
+- `GET /api/demo/document-guidance` — short “how to obtain” copy for the HTML demo
 
 **Without SMTP**, messages are **logged only** (see the uvicorn terminal). To send real mail, set:
 
@@ -145,7 +146,8 @@ Set the `NEXT_PUBLIC_API_BASE_URL` in Vercel to that backend URL.
 - `GET /api/requirements/{destination_id}` – Get requirements checklist
 - `POST /api/enrollment/submit` – Submit payer enrollment application
 - `GET /api/email/status` – SMTP configured vs log-only
-- `POST /api/email/send-passport` – Send passport/workflow HTML email
+- `POST /api/email/send-passport` – Send passport/workflow HTML email (includes employer / MSO missing-items template)
+- `GET /api/demo/document-guidance` – Document finder snippets for the local demo
 
 ## Usage Workflow
 

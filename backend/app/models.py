@@ -324,7 +324,12 @@ class PassportEmailRequest(BaseModel):
     to: EmailStr
     clinician_id: str
     workflow_id: Optional[str] = None
-    template: Literal["passport_summary", "workflow_complete", "credentialing_nudge"] = "passport_summary"
+    template: Literal[
+        "passport_summary",
+        "workflow_complete",
+        "credentialing_nudge",
+        "employer_missing_documents",
+    ] = "passport_summary"
     note: Optional[str] = None
 
 

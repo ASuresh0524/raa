@@ -99,6 +99,12 @@
         .grid-2 { grid-template-columns: 1fr; }
       }
       .error { color: #fecaca; margin-top: 10px; font-size: 13px; }
+      .sev-critical { color: #fecaca; font-weight: 600; }
+      .sev-high { color: #fdba74; }
+      .sev-medium { color: #fcd34d; }
+      .sev-low { color: var(--muted); }
+      .doc-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: rgba(2, 6, 23, 0.5); }
+      .doc-card h4 { font-size: 14px; margin-bottom: 6px; }
       .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
       ol.steps { margin: 10px 0 0 18px; color: var(--muted); font-size: 13px; }
       ol.steps li { margin-bottom: 6px; }
@@ -109,9 +115,9 @@
       <div class="hero">
         <h1>Credentialing Passport — local demo</h1>
         <p>
-          This page exercises the real FastAPI backend: seed passport, authorize a destination, run the orchestrator,
-          inspect <strong>task runs</strong>, <strong>audit events</strong>, <strong>provider truth preview</strong>,
-          <strong>first billable–style guardrails</strong>, and <strong>state form auto-fill</strong>. All data is demo-only.
+          Live demo: <strong>pre-flight QA</strong> before submit, <strong>clinician vs org</strong> handoff, <strong>document finder</strong>,
+          <strong>employer email</strong> from quality gaps, <strong>export pack</strong> for Symplr-style handoff — plus workflows, truth preview,
+          guardrails, and state form fill. All data is demo-only.
         </p>
         <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
           <label class="label" style="margin:0;width:100%;">API base URL</label>
@@ -165,6 +171,52 @@
         </div>
       </div>
 
+      <div class="card" style="margin-top:18px;">
+        <h3>Pre-flight check (pre-submission QA)</h3>
+        <p class="muted">Runs <span class="mono">GET /api/passport/{id}/quality</span> before you submit to a payer or committee — catch gaps early and reduce rejection lag.</p>
+        <div class="row-actions">
+          <button class="button" type="button" id="runPreFlightBtn">Run pre-flight on selected passport</button>
+        </div>
+        <div id="preFlightPanel" class="muted" style="margin-top:14px;">Select a passport, then run pre-flight.</div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:18px;">
+        <div class="card">
+          <h3>Clinician vs organization</h3>
+          <p class="muted">Who must supply what — passport stays valuable even when only the clinician is on platform; the org still sees a clear handoff.</p>
+          <div class="scroll-lg" style="margin-top:10px;">
+            <table>
+              <thead><tr><th>Artifact / gate</th><th>Typically</th></tr></thead>
+              <tbody>
+                <tr><td>Identity, CV, diplomas, licenses (self-held)</td><td><strong>Clinician</strong></td></tr>
+                <tr><td>PECOS individual practitioner sign</td><td><strong>Clinician</strong></td></tr>
+                <tr><td>Reassignment acceptance (Medicare)</td><td><strong>Organization</strong> (must e-sign)</td></tr>
+                <tr><td>Privilege verification letter</td><td><strong>Organization</strong> (MSO)</td></tr>
+                <tr><td>Employment verification / HR attestations</td><td><strong>Organization</strong></td></tr>
+                <tr><td>Malpractice COI</td><td><strong>Clinician</strong> (carrier) or employer-sponsored</td></tr>
+                <tr><td>Committee recommendation</td><td><strong>Organization</strong></td></tr>
+                <tr><td>Temporary privileges decision + FPPE</td><td><strong>Organization</strong> (clinician supplies evidence)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Document finder</h3>
+          <p class="muted">Guidance for coordinators: how to obtain common credentialing artifacts (<span class="mono">GET /api/demo/document-guidance</span>).</p>
+          <input class="input" id="docFindFilter" type="search" placeholder="Filter by title…" style="margin-top:8px;" />
+          <div class="scroll-lg" id="docGuidanceList" style="margin-top:10px;"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:18px;">
+        <h3>Export pack (Symplr / vendor handoff)</h3>
+        <p class="muted">Single JSON you can map into Symplr, Medallion, or upload as a structured packet — passport value without the org on our product.</p>
+        <div class="row-actions">
+          <button class="button secondary" type="button" id="exportPackBtn">Download clinician export pack</button>
+        </div>
+        <p class="muted" style="margin-top:10px;font-size:12px;">Includes passport snapshot + quality report + export hints. Not a vendor-certified integration — a <strong>destination-ready bundle</strong> for your ops team.</p>
+      </div>
+
       <div class="grid grid-2">
         <div class="card">
           <h3>Safe billable status (demo)</h3>
@@ -209,11 +261,13 @@
           <option value="passport_summary">Passport summary</option>
           <option value="workflow_complete">Workflow complete</option>
           <option value="credentialing_nudge">Credentialing nudge</option>
+          <option value="employer_missing_documents">Employer / MSO — missing items (from pre-flight)</option>
         </select>
         <label class="label" style="margin-top:8px;">Optional note</label>
         <input class="input" id="emailNote" placeholder="Shown in the email body" />
         <div class="row-actions" style="margin-top:12px;">
           <button class="button" type="button" id="sendEmailBtn">Send email</button>
+          <button class="button secondary" type="button" id="prepareEmployerEmailBtn">Use employer / MSO template</button>
           <button class="button secondary" type="button" id="refreshEmailStatusBtn">Refresh email mode</button>
         </div>
         <pre id="emailResult" style="margin-top:12px;display:none;"></pre>
@@ -264,6 +318,8 @@
         let selectedClinicianId = null;
         let lastEvidenceJson = '';
         let lastStatus = null;
+        let lastPreFlightQuality = null;
+        let documentGuidanceItems = [];
 
         const $ = (id) => document.getElementById(id);
 
@@ -337,6 +393,127 @@
           testConnection();
         };
         $('testConnBtn').onclick = testConnection;
+
+        function severityClass(sev) {
+          const s = (sev || '').toLowerCase();
+          if (s === 'critical') return 'sev-critical';
+          if (s === 'high') return 'sev-high';
+          if (s === 'medium') return 'sev-medium';
+          return 'sev-low';
+        }
+
+        async function runPreFlight() {
+          const cid = selectedClinicianId || 'clinician-001';
+          const panel = $('preFlightPanel');
+          try {
+            setError('');
+            const q = await api('/api/passport/' + encodeURIComponent(cid) + '/quality');
+            lastPreFlightQuality = q;
+            const issues = q.issues || [];
+            const critical = issues.filter((i) => i.severity === 'critical').length;
+            const high = issues.filter((i) => i.severity === 'high').length;
+            let warn = '';
+            if (critical > 0) warn = '<p style="color:#fecaca;margin-top:8px;"><strong>Do not submit</strong> until critical items are resolved (demo rule).</p>';
+            else if (high > 0) warn = '<p style="color:#fdba74;margin-top:8px;">High-severity findings — review before external submit.</p>';
+
+            let rows = '';
+            issues.forEach((i) => {
+              rows +=
+                '<tr><td><span class="' +
+                severityClass(i.severity) +
+                '">' +
+                escapeHtml(i.severity) +
+                '</span></td><td>' +
+                escapeHtml(i.description) +
+                '</td><td class="muted">' +
+                escapeHtml(i.suggested_fix || '—') +
+                '</td></tr>';
+            });
+            if (!rows) rows = '<tr><td colspan="3" class="muted">No issues flagged — still run a full committee/payer checklist in production.</td></tr>';
+
+            panel.innerHTML =
+              '<p><strong>Completeness:</strong> ' +
+              Math.round(q.completeness_score || 0) +
+              '% · <strong>Open issues:</strong> ' +
+              issues.length +
+              '</p>' +
+              warn +
+              '<table style="margin-top:10px;"><thead><tr><th>Severity</th><th>Description</th><th>Suggested fix</th></tr></thead><tbody>' +
+              rows +
+              '</tbody></table>';
+          } catch (e) {
+            panel.textContent = '';
+            setError(e.message || 'Pre-flight failed');
+          }
+        }
+
+        function renderDocGuidanceList() {
+          const el = $('docGuidanceList');
+          if (!el) return;
+          const q = ($('docFindFilter') && $('docFindFilter').value) ? $('docFindFilter').value.toLowerCase() : '';
+          const items = documentGuidanceItems.filter(
+            (it) =>
+              !q ||
+              (it.title && it.title.toLowerCase().includes(q)) ||
+              (it.id && it.id.toLowerCase().includes(q))
+          );
+          if (!items.length) {
+            el.innerHTML = '<span class="muted">No matches.</span>';
+            return;
+          }
+          el.innerHTML = items
+            .map(
+              (it) =>
+                '<div class="doc-card"><h4>' +
+                escapeHtml(it.title) +
+                '</h4><p class="muted" style="font-size:12px;margin-bottom:6px;"><strong>Usually from:</strong> ' +
+                escapeHtml(it.typically_provided_by) +
+                '</p><p style="font-size:13px;">' +
+                escapeHtml(it.how_to_obtain) +
+                '</p></div>'
+            )
+            .join('');
+        }
+
+        async function loadDocumentGuidance() {
+          try {
+            const data = await api('/api/demo/document-guidance');
+            documentGuidanceItems = data.items || [];
+            renderDocGuidanceList();
+          } catch (_) {
+            const el = $('docGuidanceList');
+            if (el) el.innerHTML = '<span class="muted">Could not load guidance (API unreachable).</span>';
+          }
+        }
+
+        async function exportClinicianPack() {
+          const cid = selectedClinicianId || 'clinician-001';
+          try {
+            setError('');
+            const passData = await api('/api/passport/' + encodeURIComponent(cid));
+            const quality = await api('/api/passport/' + encodeURIComponent(cid) + '/quality');
+            const pack = {
+              export_kind: 'clinician_passport_pack',
+              exported_at: new Date().toISOString(),
+              version: 1,
+              vendor_handoff: {
+                symplr_medallion_note:
+                  'Structured JSON for ops to map into Symplr, Medallion, or similar. Vendor APIs and CSV layouts differ by contract — this bundle is the canonical snapshot + quality findings.',
+              },
+              passport: passData.passport,
+              quality_report: quality,
+            };
+            const blob = new Blob([JSON.stringify(pack, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'clinician-export-pack-' + cid + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+          } catch (e) {
+            setError(e.message || 'Export failed');
+          }
+        }
 
         async function refreshPassports() {
           try {
@@ -643,6 +820,16 @@
         };
         $('refreshEmailStatusBtn').onclick = refreshEmailStatus;
 
+        $('runPreFlightBtn').onclick = runPreFlight;
+        $('exportPackBtn').onclick = exportClinicianPack;
+        $('docFindFilter').addEventListener('input', renderDocGuidanceList);
+        $('prepareEmployerEmailBtn').onclick = () => {
+          $('emailTemplate').value = 'employer_missing_documents';
+          const to = $('emailTo');
+          if (!to.value.trim()) to.placeholder = 'credentialing@yourhospital.org (MSO / HR)';
+          setError('');
+        };
+
         $('copyEvidenceBtn').onclick = async () => {
           if (!lastEvidenceJson) return;
           try {
@@ -663,6 +850,7 @@
         testConnection();
         refreshPassports();
         refreshEmailStatus();
+        loadDocumentGuidance();
       })();
     </script>
   </body>
