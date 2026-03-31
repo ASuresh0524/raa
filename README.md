@@ -2,7 +2,7 @@
 
 **Universal, Clinician-Owned Credentialing and Enrollment Platform**
 
-Credentialing Passport is a production-ready web application that enables clinicians to create a single, comprehensive credentialing profile once, then reuse it across all future onboarding events. The platform uses AI agents to automate credentialing workflows, primary source verification, payer enrollment, and exception handling—transforming credentialing from a repetitive, manual process into an automated, evidence-based system.
+Credentialing Passport is a web application for a **single credentialing profile** reused across hospitals and payers, with **AI agents** for verification, pre-submission QA, and document ingestion. The **go-to-market wedge** is **vendors** (staffing, locums, etc.) who need **fast case coverage**: we **plug into existing hospital CVO systems** (Symplr, Medallion, etc.) via **exports and adapters** rather than replacing them, while keeping **HIPAA-grade** handling for labs and background artifacts. See `docs/product-strategy.md` for the full vendor/hospital/lab story.
 
 ## Features
 
@@ -91,6 +91,12 @@ The API can send HTML emails built from passport (and optional workflow) data:
 - `POST /api/email/send-passport` — body: `{ "to", "clinician_id", "template", "workflow_id"?, "note"? }`  
   Templates: `passport_summary`, `workflow_complete`, `credentialing_nudge`, `employer_missing_documents` (uses pre-flight / quality issues)
 - `GET /api/demo/document-guidance` — short “how to obtain” copy for the HTML demo
+- `GET /api/demo/vendor-strategy` — vendor vs hospital CVO narrative for demos
+- `GET /api/demo/background-check-flow` — typical background/drug-screen friction vs passport path
+- `GET /api/demo/vendor/status` — demo HIPAA + simulated agent ingest flags
+- `POST /api/demo/vendor/sign-hipaa` — demo HIPAA authorization
+- `POST /api/demo/vendor/simulate-lab-agent` — demo drug-screen ingest (requires HIPAA)
+- `POST /api/demo/vendor/simulate-background-agent` — demo background report ingest (requires HIPAA)
 
 **Without SMTP**, messages are **logged only** (see the uvicorn terminal). To send real mail, set:
 
@@ -148,6 +154,8 @@ Set the `NEXT_PUBLIC_API_BASE_URL` in Vercel to that backend URL.
 - `GET /api/email/status` – SMTP configured vs log-only
 - `POST /api/email/send-passport` – Send passport/workflow HTML email (includes employer / MSO missing-items template)
 - `GET /api/demo/document-guidance` – Document finder snippets for the local demo
+- `GET /api/demo/vendor-strategy` / `GET /api/demo/background-check-flow` – Vendor + CVO plug-and-play narrative
+- `GET|POST /api/demo/vendor/*` – HIPAA + simulated lab/background agent (local demo state)
 
 ## Usage Workflow
 

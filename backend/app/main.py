@@ -47,6 +47,9 @@ from .models import (
 from .forms import populate_state_form
 from . import email_service
 
+# In-memory demo state for vendor HIPAA / lab-ingest simulation (local demo only).
+_vendor_demo_state: dict[str, dict] = {}
+
 
 def updated_workflow(db: Session, workflow_id: str, workflow: Workflow) -> None:
     """Persist updated workflow into DB (helper)."""
@@ -142,8 +145,135 @@ def document_guidance_demo() -> dict:
                 "typically_provided_by": "Organization decision; clinician supplies evidence",
                 "how_to_obtain": "Assemble clean license, DEA, core privileges request, FPPE plan. Joint Commission caps new applicant temp priv at 120 consecutive days — document rationale.",
             },
+            {
+                "id": "background_check_vendor",
+                "title": "Background check (criminal / employment / SSN trace)",
+                "typically_provided_by": "Vendor pays screening company; employer may reimburse",
+                "how_to_obtain": "Order through approved CVO vendor list; 7–14 days common. Passport agent should ingest final PDF into vault after HIPAA release.",
+            },
+            {
+                "id": "drug_screen_clinic",
+                "title": "Drug screen (clinic requisition)",
+                "typically_provided_by": "Clinician at lab; employer or vendor coordinates ticket",
+                "how_to_obtain": "Use hospital/staffing requisition at network lab; upload PDF or have results routed to passport with authorization.",
+            },
         ]
     }
+
+
+def _vendor_demo_get(clinician_id: str) -> dict:
+    if clinician_id not in _vendor_demo_state:
+        _vendor_demo_state[clinician_id] = {
+            "clinician_id": clinician_id,
+            "hipaa_release_signed": False,
+            "lab_agent_ingested": False,
+            "background_agent_ingested": False,
+            "events": [],
+        }
+    return _vendor_demo_state[clinician_id]
+
+
+@app.get("/api/demo/vendor-strategy")
+def vendor_strategy_demo() -> dict:
+    """Narrative for demos: hospitals vs vendors, plug-and-play CVO, pricing wedge."""
+    return {
+        "pull_quote": (
+            "Replacing a hospital's credentialing system as a startup would be like moving mountains — "
+            "so we plug the passport into whatever they already use."
+        ),
+        "hospital_reality": [
+            "Hospitals hold leverage; they often do not pay for vendor-side credentialing tools.",
+            "They pick CVO systems for accreditation fit and usability — migration cost is enormous.",
+            "Distribution and trust come from the hospital; revenue can come from vendors who need speed.",
+        ],
+        "vendor_value": [
+            "Locums, staffing, and clinical vendors pay because time-to-case-coverage is revenue.",
+            "Charge vendors lightly; win on volume and activation speed.",
+            "Export/adapters place passport evidence into Symplr, Medallion, and other shapes without manual re-upload per portal.",
+        ],
+        "hipaa_labs": [
+            "Lab and screening artifacts are PHI — HIPAA-grade handling and BAAs.",
+            "Signup includes HIPAA authorization so agents can ingest results on behalf of the user.",
+            "Document-ingestion agents reduce 'download PDF → upload to ten portals' work.",
+        ],
+        "security": "Encryption, access control, audit trails, and minimum necessary — non-negotiable for enterprise and delegated credentialing.",
+    }
+
+
+@app.get("/api/demo/background-check-flow")
+def background_check_flow_demo() -> dict:
+    """Side-by-side: typical vendor friction vs passport-oriented path (demo narrative)."""
+    return {
+        "typical_today": [
+            "Screening vendor runs SSN-based background (7–14 days); vendor/clinician pays, seeks reimbursement.",
+            "Separate clinic drug screen with employer ticket; clinician retrieves PDF.",
+            "Some vendors bundle drug + background; others require two uploads.",
+            "Clinician manually uploads each file into each hospital credentialing portal.",
+            "Opaque rejections → re-upload loops → delayed facility access and case coverage.",
+        ],
+        "with_passport": [
+            "HIPAA release at signup authorizes receipt and processing of lab/screening artifacts.",
+            "Agents ingest PDFs into the vault with provenance and timestamps.",
+            "Pre-flight QA catches gaps before submission to any CVO.",
+            "Export packs map the same evidence into each hospital's system shape.",
+            "Goal: fewer manual hops and faster path to approved-for-access.",
+        ],
+    }
+
+
+@app.get("/api/demo/vendor/status")
+def vendor_demo_status(clinician_id: str = Query("clinician-001")) -> dict:
+    """Demo: HIPAA + simulated agent ingest flags for the selected clinician."""
+    return _vendor_demo_get(clinician_id)
+
+
+@app.post("/api/demo/vendor/sign-hipaa")
+def vendor_demo_sign_hipaa(clinician_id: str = Query("clinician-001")) -> dict:
+    """Demo: record that the user accepted HIPAA authorization for lab/background handling."""
+    s = _vendor_demo_get(clinician_id)
+    s["hipaa_release_signed"] = True
+    s["events"].append({"at": datetime.utcnow().isoformat(), "type": "hipaa_release_signed"})
+    return s
+
+
+@app.post("/api/demo/vendor/simulate-lab-agent")
+def vendor_demo_simulate_lab_agent(clinician_id: str = Query("clinician-001")) -> dict:
+    """Demo: pretend the ingestion agent pulled drug-screen / lab PDF into the passport."""
+    s = _vendor_demo_get(clinician_id)
+    if not s.get("hipaa_release_signed"):
+        raise HTTPException(
+            status_code=400,
+            detail="Demo gate: sign HIPAA release first (POST /api/demo/vendor/sign-hipaa).",
+        )
+    s["lab_agent_ingested"] = True
+    s["events"].append(
+        {
+            "at": datetime.utcnow().isoformat(),
+            "type": "document_ingestion_agent",
+            "artifact": "drug_screen_pdf_stub",
+        }
+    )
+    return s
+
+
+@app.post("/api/demo/vendor/simulate-background-agent")
+def vendor_demo_simulate_background_agent(clinician_id: str = Query("clinician-001")) -> dict:
+    """Demo: pretend the agent ingested a consolidated background report."""
+    s = _vendor_demo_get(clinician_id)
+    if not s.get("hipaa_release_signed"):
+        raise HTTPException(
+            status_code=400,
+            detail="Demo gate: sign HIPAA release first (POST /api/demo/vendor/sign-hipaa).",
+        )
+    s["background_agent_ingested"] = True
+    s["events"].append(
+        {
+            "at": datetime.utcnow().isoformat(),
+            "type": "document_ingestion_agent",
+            "artifact": "background_check_report_stub",
+        }
+    )
+    return s
 
 
 @app.get("/api/email/status")
