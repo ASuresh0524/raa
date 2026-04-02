@@ -359,6 +359,15 @@
       </div>
 
       <div class="card" style="margin-top:18px;">
+        <h3>Master record &amp; orchestration</h3>
+        <p class="muted">
+          CAQH / PECOS / NCQA framing — canonical profile, packets per destination, status layer, and what separates a passport from a &ldquo;credential wallet.&rdquo;
+          <span class="mono">GET /api/demo/market-positioning</span>
+        </p>
+        <div id="marketPositioningPanel" class="muted" style="margin-top:12px;font-size:14px;line-height:1.55;">Connect to API to load narrative.</div>
+      </div>
+
+      <div class="card" style="margin-top:18px;">
         <h3>Vendor model &amp; plug-and-play CVO</h3>
         <p class="muted">Hospitals rarely switch credentialing systems — we <strong>feed</strong> Symplr, Medallion, and peers via exports; <strong>vendors</strong> pay for speed to case coverage.</p>
         <div id="vendorStrategyPanel" class="muted" style="margin-top:12px;font-size:13px;">Connect to API to load strategy narrative.</div>
@@ -768,12 +777,62 @@
           }
         }
 
+        async function loadMarketPositioning() {
+          const panel = $('marketPositioningPanel');
+          if (!panel) return;
+          try {
+            const mp = await api('/api/demo/market-positioning');
+            let html = '<p class="muted" style="margin-bottom:12px;">' + escapeHtml(mp.subtitle || '') + '</p>';
+            (mp.thesis || []).forEach((p) => {
+              html += '<p style="margin-bottom:10px;color:var(--foreground);">' + escapeHtml(p) + '</p>';
+            });
+            html += '<p class="label" style="margin-top:16px;">What great looks like (hospitals &amp; large groups)</p><ol class="steps" style="margin-top:8px;">';
+            (mp.hospital_capabilities || []).forEach((x) => {
+              html += '<li>' + escapeHtml(x) + '</li>';
+            });
+            html += '</ol>';
+            html += '<p style="margin-top:14px;color:var(--foreground);">' + escapeHtml(mp.trust_note || '') + '</p>';
+            html +=
+              '<p style="margin-top:14px;font-style:italic;border-left:3px solid var(--border);padding-left:12px;color:var(--foreground);">&ldquo;' +
+              escapeHtml(mp.positioning_tagline || '') +
+              '&rdquo;</p>';
+            html += '<p class="muted" style="margin-top:12px;">' + escapeHtml(mp.why_it_lands || '') + '</p>';
+            html += '<p class="label" style="margin-top:16px;">Where under-scoped products fail</p><ul style="margin:8px 0 0 18px;line-height:1.5;color:var(--muted-foreground);">';
+            (mp.ugly_parts || []).forEach((x) => {
+              html += '<li>' + escapeHtml(x) + '</li>';
+            });
+            html += '</ul>';
+            html += '<p style="margin-top:14px;font-weight:500;color:var(--foreground);">' + escapeHtml(mp.bottom_line || '') + '</p>';
+            html += '<p class="label" style="margin-top:16px;">Maps to this product</p><ul style="margin:8px 0 0 18px;line-height:1.5;color:var(--muted-foreground);">';
+            (mp.maps_to_product || []).forEach((x) => {
+              html += '<li>' + escapeHtml(x) + '</li>';
+            });
+            html += '</ul>';
+            html += '<p class="muted" style="margin-top:14px;font-size:13px;">Sources: ';
+            html += (mp.sources || [])
+              .map(
+                (s) =>
+                  '<a href="' +
+                  escapeHtml(s.url) +
+                  '" target="_blank" rel="noopener noreferrer" style="color:var(--blue);">' +
+                  escapeHtml(s.label) +
+                  '</a>'
+              )
+              .join(' · ');
+            html += '</p>';
+            panel.innerHTML = html;
+          } catch (_) {
+            panel.textContent = 'Could not load market positioning (API unreachable).';
+          }
+        }
+
         async function loadVendorNarratives() {
+          await loadMarketPositioning();
           try {
             const vs = await api('/api/demo/vendor-strategy');
             const panel = $('vendorStrategyPanel');
             let html =
-              '<p style="font-style:italic;color:#cbd5e1;margin-bottom:10px;">&ldquo;' +
+              '<p style="font-style:italic;color:var(--muted-foreground);margin-bottom:10px;">&ldquo;' +
               escapeHtml(vs.pull_quote) +
               '&rdquo;</p>';
             html += '<p><strong>Hospital reality</strong></p><ul style="margin:6px 0 10px 18px;line-height:1.45;">';

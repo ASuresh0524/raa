@@ -309,3 +309,5 @@ Chat-style AI is optional polish; **execution on truth, dates, packets, loops, a
 ---
 
 *Internal strategy document. External citations (TechTarget, OIG, NCQA, Joint Commission) should be verified against primary sources for investor or regulatory-facing materials.*
+
+Market positioning narrative for demos (CAQH / PECOS / NCQA framing) is served from the API at **`GET /api/demo/market-positioning`** and rendered in the HTML demo and Figma app when the API is configured.

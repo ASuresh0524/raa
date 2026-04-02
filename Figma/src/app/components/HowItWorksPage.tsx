@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { Dot, SectionLabel } from "./ui-components";
+import { MarketPositioningSection } from "./MarketPositioningSection";
 
 const steps = [
   {
@@ -67,6 +68,8 @@ export function HowItWorksPage() {
           Agents handle the entire credentialing lifecycle — retrieval, verification, submission, tracking, and renewal. You step in only when something genuinely needs your judgment.
         </p>
       </section>
+
+      <MarketPositioningSection />
 
       <div className="h-px bg-border" />
 

@@ -33,6 +33,26 @@ export function demoWorkflow() {
   return request("/api/demo/workflow", { method: "POST" });
 }
 
+export type MarketPositioningSource = { label: string; url: string };
+
+export type MarketPositioning = {
+  title: string;
+  subtitle: string;
+  thesis: string[];
+  hospital_capabilities: string[];
+  trust_note: string;
+  positioning_tagline: string;
+  why_it_lands: string;
+  ugly_parts: string[];
+  bottom_line: string;
+  maps_to_product: string[];
+  sources: MarketPositioningSource[];
+};
+
+export function getMarketPositioning() {
+  return request<MarketPositioning>("/api/demo/market-positioning");
+}
+
 export function runWorkflow(workflowId: string) {
   return request(`/api/workflow/${workflowId}/run`, { method: "POST" });
 }

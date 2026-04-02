@@ -221,6 +221,77 @@ def background_check_flow_demo() -> dict:
     }
 
 
+@app.get("/api/demo/market-positioning")
+def market_positioning_demo() -> dict:
+    """
+    Product narrative: canonical record + submission/compliance orchestration (CAQH, PECOS, NCQA).
+    Single source for HTML demo and Figma when API_BASE is set.
+    """
+    return {
+        "title": "Master record & orchestration",
+        "subtitle": "Why a credentialing passport can be very large — CAQH, PECOS, NCQA",
+        "thesis": [
+            (
+                "The stack is fragmented. Providers and groups already use CAQH-style flows to enter "
+                "information once and share it with participating plans and organizations — but they still "
+                "run Medicare enrollment and updates in PECOS, payer-specific processes, verification "
+                "requirements, and internal credentialing review in parallel."
+            ),
+            (
+                "The passport is not just document storage. It is the canonical source of truth for "
+                "provider and group data, then generating the right packet for each downstream destination "
+                "and tracking what was submitted, what is missing, and what must be re-attested."
+            ),
+        ],
+        "hospital_capabilities": [
+            "Maintain one canonical provider profile and one group profile.",
+            "Auto-generate the right packet for each payer, CVO, hospital, and enrollment portal.",
+            "Track what was submitted, when, by whom, and what is still missing.",
+            "Manage re-attestations, expirables, sanctions monitoring, and re-credentialing cycles.",
+            "Preserve audit trail and evidence for credentialing and accreditation expectations.",
+        ],
+        "trust_note": (
+            "NCQA-aligned buyers still expect primary source verification, committee review, and ongoing "
+            "monitoring. Software can collect information and support workflow, but the organization remains "
+            "accountable for compliant credentialing — a passport that only exports data is weaker than one "
+            "that supports verification, committee-ready packets, and operational workflow."
+        ),
+        "positioning_tagline": (
+            "Use us as the master provider identity and credentialing record; we sync or submit into "
+            "CAQH-shaped flows, PECOS, payer rosters, and hospital credentialing systems while tracking "
+            "the full status layer on top."
+        ),
+        "why_it_lands": (
+            "It promises less duplicate entry, lower admin burden, and better data quality — the same class "
+            "of pain CAQH markets against — while owning orchestration across channels, not another silo."
+        ),
+        "ugly_parts": [
+            "Credential matching across sources and destinations.",
+            "Missing-field and completeness logic.",
+            "Payer- and destination-specific requirements.",
+            "Signatures, attestations, and document freshness.",
+            "Delegated roster and trading-partner formats.",
+            "Workflow orchestration when a portal cannot be fully automated.",
+        ],
+        "bottom_line": (
+            "The winning product is not a wallet for credentials — it is a passport plus submission "
+            "and compliance orchestration layer."
+        ),
+        "maps_to_product": [
+            "Provider Truth Graph",
+            "Export / adapter packs",
+            "Pre-flight QA",
+            "Primary source verification workflows",
+            "Committee and temp-priv modules",
+            "Audit-ready evidence",
+        ],
+        "sources": [
+            {"label": "CAQH", "url": "https://www.caqh.org/"},
+            {"label": "NCQA", "url": "https://www.ncqa.org/"},
+        ],
+    }
+
+
 @app.get("/api/demo/vendor/status")
 def vendor_demo_status(clinician_id: str = Query("clinician-001")) -> dict:
     """Demo: HIPAA + simulated agent ingest flags for the selected clinician."""
