@@ -189,6 +189,8 @@ def update_task_run(
     if not tr:
         return None
     for k, v in fields.items():
+        if k in ("output", "exceptions") and isinstance(v, (dict, list)):
+            v = jsonable_encoder(v)
         setattr(tr, k, v)
     db.commit()
     db.refresh(tr)
