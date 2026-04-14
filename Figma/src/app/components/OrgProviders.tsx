@@ -31,25 +31,37 @@ export function OrgProviders() {
         if (!Array.isArray(data) || data.length === 0) return;
         const mapped: ProviderRow[] = data.map((p, idx) => {
           const name = p?.identity?.legal_name || p?.identity?.full_name || p?.clinician_id || `Clinician ${idx + 1}`;
-          const specialty = p?.enrollment?.specialties?.[0] || "Clinician";
-          const facility = p?.enrollment?.practice_locations?.[0]?.name || "—";
+          const specialty = p?.board_certifications?.[0]?.specialty || p?.enrollment?.specialties?.[0] || "Clinician";
+          const facility = p?.enrollment?.practice_locations?.[0]?.name || "Main Campus";
+          const licenses = p?.licenses?.state_licenses || [];
+          const verifiedCount = licenses.filter((l: any) => l.verified).length;
+          const totalCreds = licenses.length + (p?.board_certifications?.length || 0);
+          const verifiedCreds = verifiedCount + (p?.board_certifications?.filter((b: any) => b.verified).length || 0);
+          const pct = totalCreds > 0 ? Math.round((verifiedCreds / totalCreds) * 100) : 100;
+          const expiring = licenses.filter((l: any) => {
+            if (!l.expiration_date) return false;
+            const exp = new Date(l.expiration_date);
+            const now = new Date();
+            const diff = (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+            return diff > 0 && diff < 90;
+          }).length;
           return {
             id: p?.clinician_id || `${idx + 1}`,
             name,
-            type: "MD",
+            type: (p?.identity?.designation || "MD") as "MD" | "RN",
             specialty,
             facility,
-            pct: 100,
-            blockers: 0,
-            exp: 0,
-            stage: "Active",
-            status: "verified",
+            pct,
+            blockers: totalCreds - verifiedCreds,
+            exp: expiring,
+            stage: pct === 100 ? "Active" : pct >= 50 ? "In review" : "Blocked",
+            status: (pct === 100 ? "verified" : pct >= 50 ? "pending" : "error") as "verified" | "pending" | "error",
           };
         });
-        setRows(mapped);
+        setRows([...mapped, ...providers.slice(mapped.length)]);
       })
-      .catch((err: any) => {
-        toast.error("Failed to load providers", { description: String(err?.message || err) });
+      .catch(() => {
+        /* keep fallback mock data */
       });
     return () => {
       ignore = true;

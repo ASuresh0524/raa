@@ -143,10 +143,22 @@ export function ClinicianDashboard() {
     try {
       const status = await getWorkflow(id);
       setWorkflowStatus(status);
+      return status;
     } catch (err: any) {
       toast.error("Workflow refresh failed", { description: String(err?.message || err) });
+      return null;
     }
   };
+
+  // Auto-poll workflow while running
+  useEffect(() => {
+    if (!workflowId || workflowStatus?.workflow?.status === "completed") return;
+    const interval = setInterval(async () => {
+      const s = await refreshWorkflow(workflowId);
+      if (s?.workflow?.status === "completed") clearInterval(interval);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [workflowId, workflowStatus?.workflow?.status]);
 
   const startLiveWorkflow = async () => {
     setWorkflowLoading(true);
@@ -501,13 +513,24 @@ export function ClinicianDashboard() {
         ))}
       </div>
 
-      {/* Live workflow (backend) */}
+      {/* Live agent pipeline (backend) */}
       <div className="bg-surface-elevated border border-border rounded-xl p-5 mb-8 mt-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-[15px] text-foreground">Live workflow (backend)</p>
+            <div className="flex items-center gap-2.5">
+              <p className="text-[15px] text-foreground">Agent pipeline</p>
+              {workflowStatus?.workflow?.status === "completed" && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-green bg-green/10 border border-green/20 px-2 py-0.5 rounded-full">Complete</span>
+              )}
+              {workflowStatus?.workflow?.status === "in_progress" && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-yellow bg-yellow/10 border border-yellow/20 px-2 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow animate-pulse" />
+                  Running
+                </span>
+              )}
+            </div>
             <p className="text-[13px] text-muted-foreground mt-0.5">
-              {workflowId ? `Workflow ID ${workflowId}` : "Start credentialing to create a workflow"}
+              {workflowId ? workflowId : "Agents start when you grant access"}
             </p>
           </div>
           <button
@@ -520,21 +543,122 @@ export function ClinicianDashboard() {
             Refresh
           </button>
         </div>
-        <div className="mt-4 text-[13px] text-muted-foreground">
-          {workflowLoading && <p>Starting workflow…</p>}
-          {!workflowLoading && workflowStatus?.workflow && (
-            <p>
-              Status: <span className="text-foreground">{workflowStatus.workflow.status}</span>
-              {" · "}Progress: <span className="text-foreground">{Math.round(workflowStatus.progress_percentage || 0)}%</span>
-            </p>
-          )}
-          {!workflowLoading && !workflowStatus?.workflow && (
-            <p>Not connected yet.</p>
-          )}
-          <p className="mt-2">
-            If you want me to hook this into the Figma UI next (auto-populate forms on submit), say the word and I’ll wire it in.
+                {workflowLoading && (
+          <div className="mt-4 flex items-center gap-2.5 text-[13px] text-muted-foreground">
+            <span className="w-2 h-2 rounded-full bg-foreground animate-pulse" />
+            Seeding passport & launching agents…
+          </div>
+        )}
+
+        {!workflowLoading && workflowStatus?.workflow && (
+          <div className="mt-4">
+            <div className="flex items-baseline justify-between mb-2">
+              <span className="text-[13px] text-muted-foreground">
+                {Math.round(workflowStatus.progress_percentage || 0)}% complete
+              </span>
+              <span className="text-[12px] text-text-secondary tabular-nums">
+                {workflowStatus.workflow.steps?.filter((s: any) => s.status === "completed").length || 0}/{workflowStatus.workflow.steps?.length || 0} steps
+              </span>
+            </div>
+            <div className="h-1.5 bg-border rounded-full overflow-hidden">
+              <div
+                className="h-full bg-green rounded-full transition-all duration-500"
+                style={{ width: `${workflowStatus.progress_percentage || 0}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {!workflowLoading && workflowStatus?.task_runs?.length > 0 && (
+          <div className="mt-5">
+            <p className="text-[12px] text-text-secondary uppercase tracking-[0.06em] mb-3">Agent task runs</p>
+            <div className="bg-background border border-border rounded-lg divide-y divide-border/60">
+              {workflowStatus.task_runs.map((tr: any) => (
+                <div key={tr.task_run_id} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Dot status={tr.status === "completed" ? "verified" : tr.status === "failed" ? "error" : "pending"} />
+                      <span className="text-[14px] text-foreground truncate">{tr.agent_name?.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}</span>
+                    </div>
+                    <span className={`text-[12px] shrink-0 tabular-nums ${
+                      tr.status === "completed" ? "text-green" : tr.status === "failed" ? "text-red" : "text-yellow"
+                    }`}>
+                      {tr.status}
+                    </span>
+                  </div>
+                  {tr.output && (
+                    <div className="mt-2 ml-[18px] text-[13px] text-muted-foreground space-y-0.5">
+                      {tr.output.completeness_score != null && (
+                        <p>Quality: <span className="text-foreground">{Math.round(tr.output.completeness_score * 100)}%</span></p>
+                      )}
+                      {tr.output.issues?.length === 0 && tr.output.completeness_score != null && (
+                        <p className="text-green">No issues — passport data clean</p>
+                      )}
+                      {tr.output.issues?.length > 0 && (
+                        <p className="text-yellow">{tr.output.issues.length} issue{tr.output.issues.length > 1 ? "s" : ""} found</p>
+                      )}
+                      {tr.output.checklist_items?.length > 0 && (
+                        <p>{tr.output.checklist_items.length} requirements checked</p>
+                      )}
+                      {tr.output.verifications?.length > 0 && (
+                        <p>{tr.output.verifications.length} credential{tr.output.verifications.length > 1 ? "s" : ""} verified</p>
+                      )}
+                      {tr.output.submitted_to && (
+                        <p>Submitted to <span className="text-foreground">{tr.output.submitted_to}</span></p>
+                      )}
+                      {tr.output.enrollment_status && (
+                        <p>Enrollment: <span className="text-foreground">{tr.output.enrollment_status}</span></p>
+                      )}
+                    </div>
+                  )}
+                  {tr.exceptions?.length > 0 && (
+                    <p className="mt-1 ml-[18px] text-[12px] text-red">{tr.exceptions[0]?.message || "Error during execution"}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!workflowLoading && workflowStatus?.audit_events?.length > 0 && (
+          <details className="mt-4">
+            <summary className="text-[12px] text-text-secondary uppercase tracking-[0.06em] cursor-pointer hover:text-muted-foreground transition-colors">
+              Audit trail ({workflowStatus.audit_events.length} events)
+            </summary>
+            <div className="mt-2 bg-background border border-border rounded-lg max-h-48 overflow-y-auto divide-y divide-border/40">
+              {workflowStatus.audit_events.map((evt: any) => (
+                <div key={evt.event_id} className="px-4 py-2.5 text-[13px]">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-foreground">{evt.action}</span>
+                    <span className="text-[11px] text-text-secondary tabular-nums shrink-0">
+                      {evt.created_at ? new Date(evt.created_at).toLocaleTimeString() : ""}
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground mt-0.5">{evt.actor} · {evt.source}</p>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+
+        {!workflowLoading && workflowStatus?.workflow?.evidence_bundle && (
+          <details className="mt-4">
+            <summary className="text-[12px] text-text-secondary uppercase tracking-[0.06em] cursor-pointer hover:text-muted-foreground transition-colors">
+              Evidence bundle
+            </summary>
+            <div className="mt-2 bg-background border border-border rounded-lg p-4 max-h-60 overflow-y-auto">
+              <pre className="text-[12px] text-muted-foreground whitespace-pre-wrap break-words font-mono leading-relaxed">
+                {JSON.stringify(workflowStatus.workflow.evidence_bundle, null, 2)}
+              </pre>
+            </div>
+          </details>
+        )}
+
+        {!workflowLoading && !workflowStatus?.workflow && !workflowId && (
+          <p className="mt-4 text-[13px] text-muted-foreground">
+            Click “Grant access & begin” to seed a clinician passport and run the full agent pipeline.
           </p>
-        </div>
+        )}
       </div>
 
       {/* Expanded metric detail */}

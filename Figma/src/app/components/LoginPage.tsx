@@ -3,14 +3,27 @@ import { useState } from "react";
 import { ThemeToggle } from "./ui-components";
 import { ArrowLeft } from "lucide-react";
 import { motion } from "motion/react";
+import { seedDemoPassport } from "../api";
 
 export function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [demoLoading, setDemoLoading] = useState(false);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    navigate("/role-select");
+  };
+
+  const handleDemoMode = async () => {
+    setDemoLoading(true);
+    try {
+      await seedDemoPassport();
+    } catch {
+      /* API may not be running, still navigate */
+    }
+    setDemoLoading(false);
     navigate("/role-select");
   };
 
@@ -72,6 +85,14 @@ export function LoginPage() {
 
         <button className="w-full border border-border bg-surface-elevated text-[15px] text-foreground py-3 rounded-xl hover:bg-secondary transition-colors cursor-pointer">
           Continue with SSO
+        </button>
+
+        <button
+          onClick={handleDemoMode}
+          disabled={demoLoading}
+          className="w-full mt-3 border border-green/30 bg-green/5 text-[15px] text-green py-3 rounded-xl hover:bg-green/10 transition-colors cursor-pointer disabled:opacity-50"
+        >
+          {demoLoading ? "Seeding demo data\u2026" : "Launch demo mode"}
         </button>
 
         <p className="text-[15px] text-muted-foreground text-center mt-10">

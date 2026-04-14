@@ -1,11 +1,13 @@
-/* ClinicianPassport – force cache bust */
-import React from "react";
+/* ClinicianPassport – wired to backend API */
+import React, { useEffect, useState } from "react";
 import { ChevronRight, ArrowLeft } from "lucide-react";
 import { Link } from "react-router";
 import { useCredentialing } from "./CredentialingContext";
 import { SectionLabel, Dot } from "./ui-components";
 import { ResolveModal } from "./ResolveModal";
 import { FixResubmitWizard } from "./FixResubmitWizard";
+import { getPassport } from "../api";
+import { toast } from "sonner";
 
 // ── Flow phases ──
 const phases = [
@@ -102,6 +104,86 @@ const sections: Section[] = [
 
 type View = "journey" | "credentials";
 
+function mapPassportToSections(passport: any): Section[] {
+  const s: Section[] = [];
+
+  const identity = passport?.identity;
+  const enrollment = passport?.enrollment;
+  const npi = enrollment?.practice_locations?.[0]?.npi;
+  const addr = identity?.address_history?.[0];
+  if (identity) {
+    const fields: Field[] = [
+      { label: "Full name", value: identity.legal_name || "—", status: "verified", verified: "API", source: "NPI Registry" },
+    ];
+    if (npi) fields.push({ label: "NPI", value: npi, status: "verified", verified: "API", source: "NPPES" });
+    if (identity.date_of_birth) fields.push({ label: "Date of birth", value: identity.date_of_birth, status: "verified", verified: "API", source: "Identity doc" });
+    if (identity.email) fields.push({ label: "Email", value: identity.email, status: "verified", verified: "API", source: "Self-reported" });
+    if (addr) fields.push({ label: "Practice address", value: `${addr.street}, ${addr.city}, ${addr.state}`, status: "verified", verified: "API", source: "NPI Registry" });
+    s.push({ name: "Identity", fields });
+  }
+
+  const licenses = passport?.licenses?.state_licenses;
+  if (licenses?.length) {
+    s.push({
+      name: "Licenses",
+      fields: licenses.map((lic: any) => ({
+        label: `${lic.state} ${lic.license_type || "Medical"} License`,
+        value: `#${lic.license_number}`,
+        status: lic.verified ? "verified" as const : "pending" as const,
+        verified: lic.verification_date || "—",
+        exp: lic.expiration_date || undefined,
+        source: `${lic.state} Medical Board`,
+      })),
+    });
+  }
+
+  const boards = passport?.board_certifications;
+  if (boards?.length) {
+    s.push({
+      name: "Board certification",
+      fields: boards.map((b: any) => ({
+        label: b.specialty || b.name || "Board Cert",
+        value: b.certifying_board || "—",
+        status: b.verified ? "verified" as const : "warning" as const,
+        verified: b.verification_date || "—",
+        exp: b.expiration_date || undefined,
+        source: b.certifying_board || "Board",
+      })),
+    });
+  }
+
+  const edu = passport?.education;
+  if (Array.isArray(edu) && edu.length > 0) {
+    const fields: Field[] = edu.map((e: any) => ({
+      label: e.degree || "Education",
+      value: `${e.institution}${e.graduation_date ? `, ${new Date(e.graduation_date).getFullYear()}` : ""}`,
+      status: e.verified ? "verified" as const : "pending" as const,
+      verified: "API",
+      source: "AMA Masterfile",
+    }));
+    s.push({ name: "Education & training", fields });
+  }
+
+  const mal = passport?.malpractice;
+  if (mal) {
+    s.push({
+      name: "Malpractice",
+      fields: [
+        {
+          label: "Insurance certificate",
+          value: mal.carrier ? `${mal.carrier} — ${mal.policy_number || ""}` : mal.policy_number || "On file",
+          status: mal.expiration_date ? "verified" as const : "error" as const,
+          verified: "API",
+          exp: mal.expiration_date || undefined,
+          source: mal.carrier || "Carrier",
+        },
+      ],
+    });
+  }
+
+  return s.length > 0 ? s : sections;
+}
+
 export function ClinicianPassport() {
   const [expanded, setExpanded] = React.useState<string | null>("Identity");
   const [view, setView] = React.useState<View>("journey");
@@ -115,6 +197,29 @@ export function ClinicianPassport() {
   } | null>(null);
   const { done, clinicianType } = useCredentialing();
 
+  const [apiSections, setApiSections] = useState<Section[] | null>(null);
+  const [apiQuality, setApiQuality] = useState<any>(null);
+  const [apiName, setApiName] = useState<string | null>(null);
+  const [apiLoading, setApiLoading] = useState(false);
+
+  useEffect(() => {
+    let ignore = false;
+    setApiLoading(true);
+    getPassport("clinician-001")
+      .then((data: any) => {
+        if (ignore) return;
+        const p = data?.passport || data;
+        setApiSections(mapPassportToSections(p));
+        setApiName(p?.identity?.legal_name || p?.identity?.full_name || null);
+        if (data?.quality_report) setApiQuality(data.quality_report);
+      })
+      .catch(() => {
+        /* API not available, use mock data */
+      })
+      .finally(() => { if (!ignore) setApiLoading(false); });
+    return () => { ignore = true; };
+  }, [done]);
+
   const openResolve = (label: string, status: "verified" | "pending" | "warning" | "error" = "warning") => {
     setResolveLabel(label);
     setResolveStatus(status);
@@ -123,9 +228,11 @@ export function ClinicianPassport() {
 
   const designation = clinicianType || "MD";
 
-  const total = sections.reduce((a, s) => a + s.fields.length, 0);
-  const verified = sections.reduce((a, s) => a + s.fields.filter((f) => f.status === "verified").length, 0);
+  const activeSections = apiSections || sections;
+  const total = activeSections.reduce((a, s) => a + s.fields.length, 0);
+  const verified = activeSections.reduce((a, s) => a + s.fields.filter((f) => f.status === "verified").length, 0);
   const pct = Math.round((verified / total) * 100);
+  const displayName = apiName || "Dr. Sarah Chen";
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
@@ -137,19 +244,24 @@ export function ClinicianPassport() {
 
       <h1 className="text-[22px] text-foreground tracking-[-0.02em]">Credentialing Passport</h1>
       <p className="text-[15px] text-muted-foreground mt-1 mb-10">
-        Dr. Sarah Chen
+        {displayName}
         <span className="inline-flex items-center ml-2 text-[11px] tracking-[0.04em] text-muted-foreground border border-border rounded px-1.5 py-0.5 align-middle">
           {designation}
         </span>
         {" "}&middot; Internal Medicine
       </p>
 
-      {!done ? (
+      {!done && !apiSections && !apiLoading ? (
         <div className="bg-surface-elevated border border-border rounded-xl p-10 text-center">
           <p className="text-[15px] text-foreground mb-1">No credentials yet</p>
           <p className="text-[14px] text-muted-foreground">
             Your credentialing passport will be assembled once the agent finishes gathering and verifying your credentials.
           </p>
+        </div>
+      ) : apiLoading ? (
+        <div className="bg-surface-elevated border border-border rounded-xl p-10 text-center">
+          <p className="text-[15px] text-foreground mb-1">Loading passport data…</p>
+          <p className="text-[14px] text-muted-foreground">Fetching credentials from the backend.</p>
         </div>
       ) : (
         <>
@@ -169,6 +281,29 @@ export function ClinicianPassport() {
           style={{ width: `${pct}%` }}
         />
       </div>
+
+      {/* Quality report from API */}
+      {apiQuality && (
+        <div className="bg-surface-elevated border border-border rounded-xl p-5 mb-6">
+          <div className="flex items-center justify-between">
+            <p className="text-[15px] text-foreground">Data quality</p>
+            <span className="text-[22px] text-foreground tabular-nums">{Math.round((apiQuality.completeness_score || 0) * 100)}%</span>
+          </div>
+          {apiQuality.issues?.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              {apiQuality.issues.map((issue: any, i: number) => (
+                <div key={i} className="flex items-start gap-2">
+                  <Dot status={issue.severity === "error" ? "error" : "warning"} />
+                  <p className="text-[13px] text-muted-foreground">{issue.field}: {issue.message}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          {(!apiQuality.issues || apiQuality.issues.length === 0) && (
+            <p className="text-[13px] text-green mt-2">All fields complete and consistent</p>
+          )}
+        </div>
+      )}
 
       {/* Phase flow indicator */}
       <div className="bg-surface-elevated border border-border rounded-xl p-5 mb-8 overflow-x-auto">
@@ -379,7 +514,7 @@ export function ClinicianPassport() {
       {/* ── Credentials view ── */}
       {view === "credentials" && (
         <div className="bg-surface-elevated border border-border rounded-xl overflow-hidden">
-          {sections.map((section, si) => {
+          {activeSections.map((section, si) => {
             const isOpen = expanded === section.name;
             const sVerified = section.fields.filter((f) => f.status === "verified").length;
             const hasIssue = section.fields.some((f) => f.status !== "verified");

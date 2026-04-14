@@ -92,3 +92,11 @@ export function sendPassportEmail(payload: {
     body: JSON.stringify(payload),
   });
 }
+
+export function getQualityReport(clinicianId: string) {
+  return request<any>(`/api/passport/${clinicianId}/quality`);
+}
+
+export function ping() {
+  return request<{ status: string; service: string; version: string }>("/api/ping");
+}

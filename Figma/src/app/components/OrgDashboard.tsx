@@ -1,11 +1,12 @@
 import { Link, useNavigate } from "react-router";
 import { Dot, SectionLabel } from "./ui-components";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ProviderDrawer } from "./ProviderDrawer";
 import { ResolveModal } from "./ResolveModal";
 import { FixResubmitWizard } from "./FixResubmitWizard";
 import { toast } from "sonner";
 import { motion } from "motion/react";
+import { listPassports, listWorkflows } from "../api";
 
 const attention = [
   { provider: "Dr. James Wilson", issue: "Missing malpractice certificate", sla: "2d" },
@@ -60,6 +61,17 @@ export function OrgDashboard() {
   const navigate = useNavigate();
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [drawerContext, setDrawerContext] = useState<string>("");
+  const [providerCount, setProviderCount] = useState<number | null>(null);
+  const [workflowCount, setWorkflowCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    listPassports()
+      .then((data: any) => { if (Array.isArray(data)) setProviderCount(data.length); })
+      .catch(() => {});
+    listWorkflows()
+      .then((data: any) => { if (Array.isArray(data)) setWorkflowCount(data.length); })
+      .catch(() => {});
+  }, []);
   const [resolveModalOpen, setResolveModalOpen] = useState(false);
   const [resolveTarget, setResolveTarget] = useState<string | null>(null);
   const [fixResubmitWizardOpen, setFixResubmitWizardOpen] = useState(false);
@@ -89,11 +101,11 @@ export function OrgDashboard() {
         variants={{ animate: { transition: { staggerChildren: 0.06 } } }}
       >
         {[
-          { label: "Providers", value: "147", href: "/app/org/providers" },
+          { label: "Providers", value: providerCount != null ? String(providerCount) : "147", href: "/app/org/providers" },
           { label: "Requests", value: "24", href: "/app/org/requests" },
-          { label: "Attention", value: "5", href: "/app/org/attention" },
-          { label: "Submissions", value: "12", href: "/app/org/submissions" },
-          { label: "Deadlines", value: "8", href: "/app/org/monitoring" },
+          { label: "Attention", value: String(attention.length), href: "/app/org/attention" },
+          { label: "Workflows", value: workflowCount != null ? String(workflowCount) : "12", href: "/app/org/submissions" },
+          { label: "Deadlines", value: String(deadlines.length), href: "/app/org/monitoring" },
         ].map((m) => (
           <motion.div
             key={m.label}
