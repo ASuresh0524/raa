@@ -113,16 +113,18 @@ The API can send HTML emails built from passport (and optional workflow) data:
 The HTML demo includes an **Email bot** card that calls this endpoint.
 
 During development:
-- Frontend reads `NEXT_PUBLIC_API_BASE_URL` (defaults to `http://localhost:8000`)
+- Frontend calls `/api/*` on the same origin by default
+- Optionally set `NEXT_PUBLIC_API_BASE_URL` when using a separate backend host
 - Backend CORS allows local + Vercel domains
 
 ## Vercel Deployment (Public Link)
 
 1. Push this repo to GitHub
 2. Create a Vercel project and select this repo
-3. In Vercel, set **Root Directory** to `frontend`
-4. Add environment variable:
-   - `NEXT_PUBLIC_API_BASE_URL` = your deployed FastAPI URL
+3. Keep **Root Directory** as `./`
+4. Confirm services from `vercel.json`:
+   - `frontend` at `/`
+   - `backend` at `/api`
 5. Deploy. Vercel will give you a public `https://...vercel.app` link
 
 See `DEPLOY_VERCEL.md` for full instructions.
@@ -130,14 +132,14 @@ See `DEPLOY_VERCEL.md` for full instructions.
 ## Troubleshooting
 
 - If you see “Failed to fetch” on Vercel, ensure:
-  - Backend is live: `https://<backend>/api/ping`
-  - Vercel env var: `NEXT_PUBLIC_API_BASE_URL=https://<backend>`
-  - Redeploy after changing env vars
+  - API is live at `https://<your-project>.vercel.app/api/ping`
+  - Your project imported from repo root (`./`) rather than `frontend` only
+  - Redeploy after any Vercel env/config changes
 
 ## Backend Deployment
 
-Deploy the FastAPI backend separately (Render, Railway, Fly.io).
-Set the `NEXT_PUBLIC_API_BASE_URL` in Vercel to that backend URL.
+Optional: deploy the FastAPI backend separately (Render, Railway, Fly.io).
+If you do, set `NEXT_PUBLIC_API_BASE_URL` in Vercel to that backend URL.
 
 ## API Endpoints
 

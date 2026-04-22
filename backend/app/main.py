@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from . import agents, data
 from .orchestrator import run_workflow
-from .database import get_db, init_db
+from .database import SessionLocal, get_db, init_db
 from .db_service import (
     create_passport,
     get_passport as get_passport_db,
@@ -55,6 +55,23 @@ def updated_workflow(db: Session, workflow_id: str, workflow: Workflow) -> None:
     """Persist updated workflow into DB (helper)."""
     update_workflow(db, workflow_id, workflow)
 
+
+def ensure_demo_seed() -> None:
+    """
+    Ensure deterministic demo data is always present for end-to-end fetch demos.
+    """
+    db = SessionLocal()
+    try:
+        sample = data.create_sample_passport()
+        existing = get_passport_db(db, sample.clinician_id)
+        if existing:
+            update_passport(db, sample.clinician_id, sample)
+        else:
+            create_passport(db, sample)
+    finally:
+        db.close()
+
+
 app = FastAPI(
     title="Credentialing Passport API",
     description="Universal clinician credentialing and enrollment platform",
@@ -66,6 +83,7 @@ app = FastAPI(
 def startup_event():
     try:
         init_db()
+        ensure_demo_seed()
     except Exception as e:  # noqa: BLE001 - surface startup errors in Render logs
         print(f"Database init failed: {e}")
         raise

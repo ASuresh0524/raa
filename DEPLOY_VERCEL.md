@@ -1,32 +1,27 @@
-# Deploy Frontend on Vercel
+# Deploy Full Stack on Vercel
 
-## 1) Deploy Backend (FastAPI) First
+This repo is configured for Vercel multi-service deploys from the root `vercel.json`:
+- `frontend` (Next.js) is served at `/`
+- `backend` (FastAPI) is served at `/api`
 
-Deploy `backend/` to Render, Railway, or Fly.io.
-
-Set:
-- `DATABASE_URL` (Postgres recommended)
-- `CORS` already allows `*.vercel.app`
-
-Example health check:
-```
-https://your-backend.example.com/api/ping
-```
-
-## 2) Deploy Frontend (Next.js) to Vercel
+## 1) Import the repo in Vercel
 
 1. Push this repo to GitHub.
-2. In Vercel, import the repo.
-3. Set **Root Directory** = `frontend`.
-4. Framework preset: **Next.js** (auto-detected)
-5. Add environment variable:
-   - `NEXT_PUBLIC_API_BASE_URL` = `https://your-backend.example.com`
-6. Deploy.
+2. In Vercel, click **New Project** and import this repo.
+3. Keep **Root Directory** as `./` (repo root).
+4. Confirm services:
+   - `frontend` entrypoint: `frontend`, route prefix: `/`
+   - `backend` entrypoint: `backend`, route prefix: `/api`
+5. Deploy.
 
-Vercel will give you a public URL:
-```
-https://your-project.vercel.app
-```
+After deploy:
+- App: `https://your-project.vercel.app`
+- API health: `https://your-project.vercel.app/api/ping`
+
+## 2) Environment Variables (optional)
+
+- For same-domain deploy (recommended): no `NEXT_PUBLIC_API_BASE_URL` needed.
+- Only set `NEXT_PUBLIC_API_BASE_URL` if your backend is hosted elsewhere.
 
 ## 3) Local Dev
 
