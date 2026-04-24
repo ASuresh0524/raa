@@ -121,11 +121,8 @@ During development:
 
 1. Push this repo to GitHub
 2. Create a Vercel project and select this repo
-3. Keep **Root Directory** as `./`
-4. Confirm services from `vercel.json`:
-   - `frontend` at `/`
-   - `backend` at `/api`
-5. Deploy. Vercel will give you a public `https://...vercel.app` link
+3. Keep **Root Directory** as `./` (not `frontend` alone)
+4. Deploy from repo root so `vercel.json` applies (Next.js at `/`, FastAPI via `api/index.py` at `/api/*`). Vercel will give you a public `https://...vercel.app` link
 
 See `DEPLOY_VERCEL.md` for full instructions.
 

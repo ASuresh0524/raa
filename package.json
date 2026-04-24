@@ -1,0 +1,11 @@
+{
+  "name": "raa",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm run build -w credentialing-passport-web",
+    "dev": "npm run dev -w credentialing-passport-web"
+  }
+}
