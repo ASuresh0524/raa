@@ -13,15 +13,37 @@ function buildPath(path: string) {
 }
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(buildPath(path), {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || `API error ${res.status}`)
+  const maxAttempts = 3
+  let lastError: Error | null = null
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const res = await fetch(buildPath(path), {
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+      })
+
+      if (!res.ok) {
+        const text = await res.text()
+        // Retry only transient server failures.
+        if (res.status >= 500 && attempt < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 400))
+          continue
+        }
+        throw new Error(text || `API error ${res.status}`)
+      }
+
+      return (await res.json()) as T
+    } catch (e: any) {
+      lastError = e instanceof Error ? e : new Error('Network request failed')
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 400))
+        continue
+      }
+    }
   }
-  return (await res.json()) as T
+
+  throw (lastError || new Error('API request failed after retries'))
 }
 
 export default function HomePage() {
