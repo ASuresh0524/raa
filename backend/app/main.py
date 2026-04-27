@@ -9,6 +9,7 @@ import os
 from fastapi import FastAPI, HTTPException, UploadFile, File, Query, Depends, BackgroundTasks
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from . import agents, data
@@ -78,6 +79,131 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
+DEMO_PAGE_HTML = """
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Credentialing Passport Live Demo</title>
+    <style>
+      body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; color: #0f172a; }
+      .card { border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+      button { background: #0f172a; color: #fff; border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; margin-right: 8px; }
+      pre { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 10px; overflow: auto; max-height: 420px; }
+      .muted { color: #475569; }
+    </style>
+  </head>
+  <body>
+    <h1>Credentialing Passport Live Demo</h1>
+    <p class="muted">This page is served by FastAPI on Vercel and fetches backend endpoints end-to-end.</p>
+
+    <div class="card">
+      <button id="pingBtn">Ping API</button>
+      <button id="seedBtn">Seed Demo Data</button>
+      <button id="loadBtn">Fetch Passports</button>
+      <button id="workflowBtn">Run Demo Workflow</button>
+    </div>
+
+    <div class="card">
+      <strong>Status</strong>
+      <div id="status" class="muted" style="margin-top:8px;">Ready.</div>
+    </div>
+
+    <div class="card">
+      <strong>Response</strong>
+      <pre id="output">{}</pre>
+    </div>
+
+    <script>
+      const statusEl = document.getElementById("status");
+      const outputEl = document.getElementById("output");
+
+      function setStatus(msg) { statusEl.textContent = msg; }
+      function setOutput(data) { outputEl.textContent = JSON.stringify(data, null, 2); }
+
+      async function apiFetch(path, options = {}) {
+        const maxAttempts = 3;
+        let lastErr = null;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            const res = await fetch(path, {
+              headers: { "Content-Type": "application/json" },
+              ...options
+            });
+            if (!res.ok) {
+              const text = await res.text();
+              if (res.status >= 500 && attempt < maxAttempts) {
+                await new Promise(r => setTimeout(r, 300 * attempt));
+                continue;
+              }
+              throw new Error(text || `HTTP ${res.status}`);
+            }
+            return await res.json();
+          } catch (err) {
+            lastErr = err;
+            if (attempt < maxAttempts) {
+              await new Promise(r => setTimeout(r, 300 * attempt));
+              continue;
+            }
+          }
+        }
+        throw lastErr || new Error("Request failed");
+      }
+
+      document.getElementById("pingBtn").onclick = async () => {
+        setStatus("Pinging /api/ping ...");
+        try {
+          const data = await apiFetch("/api/ping");
+          setOutput(data);
+          setStatus("Ping successful.");
+        } catch (e) {
+          setStatus("Ping failed.");
+          setOutput({ error: String(e) });
+        }
+      };
+
+      document.getElementById("seedBtn").onclick = async () => {
+        setStatus("Seeding demo passport ...");
+        try {
+          const data = await apiFetch("/api/demo/seed", { method: "POST" });
+          setOutput(data);
+          setStatus("Seeded.");
+        } catch (e) {
+          setStatus("Seed failed.");
+          setOutput({ error: String(e) });
+        }
+      };
+
+      document.getElementById("loadBtn").onclick = async () => {
+        setStatus("Fetching /api/passports ...");
+        try {
+          const data = await apiFetch("/api/passports");
+          setOutput(data);
+          setStatus(`Loaded ${Array.isArray(data) ? data.length : 0} passport(s).`);
+        } catch (e) {
+          setStatus("Fetch failed.");
+          setOutput({ error: String(e) });
+        }
+      };
+
+      document.getElementById("workflowBtn").onclick = async () => {
+        setStatus("Running /api/demo/workflow ...");
+        try {
+          const data = await apiFetch("/api/demo/workflow", { method: "POST" });
+          setOutput(data);
+          setStatus("Workflow complete.");
+        } catch (e) {
+          setStatus("Workflow failed.");
+          setOutput({ error: String(e) });
+        }
+      };
+    </script>
+  </body>
+</html>
+"""
+
 # Initialize database on startup
 @app.on_event("startup")
 def startup_event():
@@ -112,6 +238,12 @@ app.add_middleware(
 def ping() -> dict[str, str]:
     """Basic readiness probe."""
     return {"status": "ok", "service": "Credentialing Passport API", "version": "1.0.0"}
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def root_demo_page() -> HTMLResponse:
+    """Serve a simple live demo UI from backend for Vercel reliability."""
+    return HTMLResponse(content=DEMO_PAGE_HTML)
 
 
 @app.get("/api/demo/document-guidance")
