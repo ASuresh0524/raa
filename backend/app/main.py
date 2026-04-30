@@ -2,6 +2,7 @@
 FastAPI application for the Credentialing Passport system.
 """
 from datetime import datetime
+from io import BytesIO
 from typing import List, Optional
 import uuid
 import os
@@ -47,6 +48,9 @@ from .models import (
 )
 from .forms import populate_state_form
 from . import email_service
+from PIL import Image
+import pytesseract
+from pypdf import PdfReader
 
 # In-memory demo state for vendor HIPAA / lab-ingest simulation (local demo only).
 _vendor_demo_state: dict[str, dict] = {}
@@ -879,6 +883,56 @@ async def upload_document(
         "document_id": document.document_id,
         "message": f"Document {file.filename} uploaded successfully",
     }
+
+
+@app.post("/api/ocr/extract")
+async def extract_text_with_ocr(file: UploadFile = File(...)) -> dict:
+    """
+    Extract text from uploaded image/pdf/text files.
+    Uses pytesseract for images and pypdf for PDFs.
+    """
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    content_type = (file.content_type or "").lower()
+    filename = (file.filename or "uploaded").lower()
+
+    try:
+        # Plain text files
+        if content_type.startswith("text/") or filename.endswith((".txt", ".md", ".csv", ".json")):
+            text = raw.decode("utf-8", errors="ignore")
+            return {"status": "ok", "engine": "plain-text", "text": text, "chars": len(text)}
+
+        # PDF text extraction
+        if content_type == "application/pdf" or filename.endswith(".pdf"):
+            reader = PdfReader(BytesIO(raw))
+            pages = []
+            for idx, page in enumerate(reader.pages):
+                pages.append({"page": idx + 1, "text": page.extract_text() or ""})
+            text = "\n\n".join(p["text"] for p in pages).strip()
+            return {
+                "status": "ok",
+                "engine": "pypdf",
+                "pages": len(pages),
+                "text": text,
+                "chars": len(text),
+            }
+
+        # Image OCR
+        if content_type.startswith("image/") or filename.endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff")):
+            image = Image.open(BytesIO(raw))
+            text = pytesseract.image_to_string(image).strip()
+            return {"status": "ok", "engine": "pytesseract", "text": text, "chars": len(text)}
+
+        raise HTTPException(
+            status_code=415,
+            detail="Unsupported file type. Upload image/pdf/text file for OCR extraction.",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"OCR extraction failed: {e}")
 
 
 @app.get("/api/verification/{verification_id}", response_model=VerificationSummary)
