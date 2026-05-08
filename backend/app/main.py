@@ -3,6 +3,7 @@ FastAPI application for the Credentialing Passport system.
 """
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from typing import List, Optional
 import uuid
 import os
@@ -10,7 +11,7 @@ import os
 from fastapi import FastAPI, HTTPException, UploadFile, File, Query, Depends, BackgroundTasks
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy.orm import Session
 
 from . import agents, data
@@ -54,6 +55,9 @@ from pypdf import PdfReader
 
 # In-memory demo state for vendor HIPAA / lab-ingest simulation (local demo only).
 _vendor_demo_state: dict[str, dict] = {}
+REPO_ROOT = Path(__file__).resolve().parents[2]
+FIGMA_DIST = REPO_ROOT / "Figma" / "dist"
+FIGMA_INDEX = FIGMA_DIST / "index.html"
 
 
 def updated_workflow(db: Session, workflow_id: str, workflow: Workflow) -> None:
@@ -245,9 +249,21 @@ def ping() -> dict[str, str]:
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-def root_demo_page() -> HTMLResponse:
-    """Serve a simple live demo UI from backend for Vercel reliability."""
+def root_demo_page():
+    """Serve the built Figma demo UI from the Python function."""
+    if FIGMA_INDEX.exists():
+        return FileResponse(FIGMA_INDEX)
     return HTMLResponse(content=DEMO_PAGE_HTML)
+
+
+@app.get("/assets/{asset_path:path}", include_in_schema=False)
+def figma_asset(asset_path: str):
+    """Serve built Figma JS/CSS assets through FastAPI on Vercel."""
+    asset = (FIGMA_DIST / "assets" / asset_path).resolve()
+    assets_root = (FIGMA_DIST / "assets").resolve()
+    if assets_root not in asset.parents or not asset.exists():
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return FileResponse(asset)
 
 
 @app.get("/api/demo/document-guidance")
@@ -1028,3 +1044,13 @@ def populate_state_form_endpoint(payload: FormPopulateRequest, db: Session = Dep
         workflow.updated_at = datetime.utcnow()
         update_workflow(db, payload.workflow_id, workflow)
     return FormPopulateResponse(**filled)
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+def figma_spa_fallback(full_path: str):
+    """Serve the Figma SPA for client-side routes."""
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API route not found")
+    if FIGMA_INDEX.exists():
+        return FileResponse(FIGMA_INDEX)
+    return HTMLResponse(content=DEMO_PAGE_HTML)
