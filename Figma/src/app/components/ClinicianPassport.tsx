@@ -6,7 +6,7 @@ import { useCredentialing } from "./CredentialingContext";
 import { SectionLabel, Dot } from "./ui-components";
 import { ResolveModal } from "./ResolveModal";
 import { FixResubmitWizard } from "./FixResubmitWizard";
-import { getPassport } from "../api";
+import { getPassport, listPassports } from "../api";
 import { toast } from "sonner";
 
 // ── Flow phases ──
@@ -205,7 +205,11 @@ export function ClinicianPassport() {
   useEffect(() => {
     let ignore = false;
     setApiLoading(true);
-    getPassport("clinician-001")
+    listPassports()
+      .then((list: any[]) => {
+        const firstId = Array.isArray(list) && list[0]?.clinician_id ? list[0].clinician_id : "clinician-001";
+        return getPassport(firstId);
+      })
       .then((data: any) => {
         if (ignore) return;
         const p = data?.passport || data;
@@ -216,8 +220,12 @@ export function ClinicianPassport() {
       .catch(() => {
         /* API not available, use mock data */
       })
-      .finally(() => { if (!ignore) setApiLoading(false); });
-    return () => { ignore = true; };
+      .finally(() => {
+        if (!ignore) setApiLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
   }, [done]);
 
   const openResolve = (label: string, status: "verified" | "pending" | "warning" | "error" = "warning") => {

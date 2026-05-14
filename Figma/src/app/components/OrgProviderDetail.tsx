@@ -42,6 +42,63 @@ const metricCredentials: Record<string, { name: string; source: string; detail: 
   ],
 };
 
+type CredRow = { name: string; source: string; detail: string; status: "verified" | "pending" | "warning" };
+
+function buildLiveMetricLists(passport: any, qr: any): Record<"verified" | "error" | "warning", CredRow[]> {
+  const verified: CredRow[] = [];
+  const error: CredRow[] = [];
+  const warning: CredRow[] = [];
+
+  for (const lic of passport?.licenses?.state_licenses || []) {
+    const row: CredRow = {
+      name: `${lic.state} Medical License`,
+      source: `${lic.state} board`,
+      detail: `#${lic.license_number}${lic.expiration_date ? ` — exp ${String(lic.expiration_date).slice(0, 10)}` : ""}`,
+      status: lic.verified ? "verified" : "pending",
+    };
+    if (lic.verified) verified.push(row);
+    else error.push(row);
+  }
+
+  for (const b of passport?.board_certifications || []) {
+    const row: CredRow = {
+      name: b.specialty || "Board certification",
+      source: b.certifying_board || "Board",
+      detail: b.expiration_date ? `Exp ${String(b.expiration_date).slice(0, 10)}` : "—",
+      status: b.verified ? "verified" : "warning",
+    };
+    if (b.verified) verified.push(row);
+    else warning.push(row);
+  }
+
+  const mal = passport?.malpractice;
+  if (!mal?.carrier && !mal?.policy_number) {
+    error.push({
+      name: "Malpractice insurance",
+      source: "Passport data",
+      detail: "No policy on file",
+      status: "pending",
+    });
+  }
+
+  for (const issue of qr?.issues || []) {
+    const row: CredRow = {
+      name: String(issue.field_name || "Credential"),
+      source: "Quality check",
+      detail: String(issue.description || issue.issue_type),
+      status: issue.issue_type === "missing" ? "pending" : "warning",
+    };
+    if (issue.issue_type === "missing") error.push(row);
+    else warning.push(row);
+  }
+
+  const hasLive = verified.length + error.length + warning.length > 0;
+  if (!hasLive) {
+    return { verified: metricCredentials.verified, error: metricCredentials.error, warning: metricCredentials.warning };
+  }
+  return { verified, error, warning };
+}
+
 const ALL_US_STATES = [
   "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut",
   "Delaware","District of Columbia","Florida","Georgia","Hawaii","Idaho","Illinois",
@@ -75,12 +132,7 @@ interface CredState {
   progress: number;
 }
 
-const INITIAL_CRED_STATES: CredState[] = [
-  { state: "California", status: "active", progress: 93 },
-  { state: "New York", status: "active", progress: 78 },
-  { state: "Texas", status: "pending", progress: 45 },
-  { state: "Florida", status: "pending", progress: 12 },
-];
+const INITIAL_CRED_STATES: CredState[] = [];
 
 export function OrgProviderDetail() {
   const params = useParams<{ id: string }>();
@@ -91,9 +143,17 @@ export function OrgProviderDetail() {
   const [uploadTarget, setUploadTarget] = useState<string | null>(null);
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolveLabel, setResolveLabel] = useState("");
-  const [providerName, setProviderName] = useState("Dr. Sarah Chen");
-  const [providerNpi, setProviderNpi] = useState("1234567890");
-  const [providerSpecialty, setProviderSpecialty] = useState("Internal Medicine");
+  const [providerName, setProviderName] = useState("Provider");
+  const [providerNpi, setProviderNpi] = useState("—");
+  const [providerSpecialty, setProviderSpecialty] = useState("—");
+  const [roleBadge, setRoleBadge] = useState("MD");
+  const [pctVerified, setPctVerified] = useState(0);
+  const [metricLists, setMetricLists] = useState(metricCredentials);
+  const [metrics, setMetrics] = useState([
+    { label: "Verified", value: "0", status: "verified" as const, key: "verified" as const },
+    { label: "Missing", value: "0", status: "error" as const, key: "error" as const },
+    { label: "Expiring", value: "0", status: "warning" as const, key: "warning" as const },
+  ]);
 
   // Credentialing states
   const [credStates, setCredStates] = useState<CredState[]>(INITIAL_CRED_STATES);
@@ -127,13 +187,31 @@ export function OrgProviderDetail() {
         if (ignore) return;
         const passport = data?.passport || data;
         if (!passport) return;
-        setProviderName(passport?.identity?.legal_name || providerName);
+        setProviderName(passport?.identity?.legal_name || passport?.identity?.full_name || "Provider");
         setProviderNpi(
-          passport?.enrollment?.practice_locations?.[0]?.npi ||
-          passport?.identity?.npi ||
-          providerNpi
+          passport?.enrollment?.practice_locations?.[0]?.npi || passport?.identity?.npi || "—",
         );
-        setProviderSpecialty(passport?.enrollment?.specialties?.[0] || providerSpecialty);
+        setProviderSpecialty(passport?.enrollment?.specialties?.[0] || "—");
+        const des = passport?.identity?.designation;
+        setRoleBadge(des === "RN" || des === "LPN" ? "RN" : "MD");
+
+        const qr = data?.quality_report;
+        const lists = buildLiveMetricLists(passport, qr);
+        setMetricLists(lists);
+        const nv = lists.verified.length;
+        const ne = lists.error.length;
+        const nw = lists.warning.length;
+        const pct =
+          typeof qr?.completeness_score === "number"
+            ? Math.round(qr.completeness_score * 100)
+            : Math.round((nv / Math.max(1, nv + ne + nw)) * 100);
+        setPctVerified(pct);
+        setMetrics([
+          { label: "Verified", value: String(nv), status: "verified" as const, key: "verified" as const },
+          { label: "Missing", value: String(ne), status: "error" as const, key: "error" as const },
+          { label: "Expiring", value: String(nw), status: "warning" as const, key: "warning" as const },
+        ]);
+
         const licenseStates = Array.isArray(passport?.licenses?.state_licenses)
           ? passport.licenses.state_licenses
           : [];
@@ -143,7 +221,7 @@ export function OrgProviderDetail() {
               state: lic?.state || "Unknown",
               status: lic?.status === "active" ? "active" : "pending",
               progress: lic?.verified ? 100 : 60,
-            }))
+            })),
           );
         }
       })
@@ -153,7 +231,7 @@ export function OrgProviderDetail() {
     return () => {
       ignore = true;
     };
-  }, [clinicianId, providerName, providerNpi, providerSpecialty]);
+  }, [clinicianId]);
 
   const addCredState = useCallback((stateName: string) => {
     if (credStates.some((s) => s.state === stateName)) return;
@@ -194,13 +272,6 @@ export function OrgProviderDetail() {
     });
   };
 
-  const metrics = [
-    { label: "Verified", value: "42", status: "verified" as const, key: "verified" as MetricFilter },
-    { label: "Missing", value: "2", status: "error" as const, key: "error" as MetricFilter },
-    { label: "Expiring", value: "1", status: "warning" as const, key: "warning" as MetricFilter },
-  ];
-
-  return (
     <div className="max-w-4xl mx-auto px-6 py-10">
       <Link to="/app/org/providers" className="inline-flex items-center gap-2 text-[14px] text-muted-foreground hover:text-foreground transition-colors mb-6">
         <ArrowLeft size={16} />
@@ -213,13 +284,13 @@ export function OrgProviderDetail() {
           <div className="flex items-center gap-2.5">
             <h1 className="text-[22px] text-foreground tracking-[-0.02em]">{providerName}</h1>
             <span className="inline-flex items-center text-[11px] tracking-[0.04em] text-muted-foreground border border-border rounded px-1.5 py-0.5">
-              MD
+              {roleBadge}
             </span>
           </div>
           <p className="text-[15px] text-muted-foreground mt-1">NPI {providerNpi} &middot; {providerSpecialty}</p>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-[15px] text-muted-foreground tabular-nums">93% verified</span>
+          <span className="text-[15px] text-muted-foreground tabular-nums">{pctVerified}% verified</span>
           <button
             onClick={() => setUploadOpen(true)}
             className="inline-flex items-center gap-2 text-[14px] bg-foreground text-background px-4 py-2 rounded-lg hover:opacity-90 transition-opacity cursor-pointer"
@@ -251,9 +322,9 @@ export function OrgProviderDetail() {
       </div>
 
       {/* Expanded metric detail */}
-      {activeMetric && (
+      {activeMetric && metricLists[activeMetric]?.length ? (
         <div className="bg-surface-elevated border border-border rounded-xl divide-y divide-border mb-10 mt-2">
-          {metricCredentials[activeMetric].map((cred, i) => (
+          {metricLists[activeMetric].map((cred, i) => (
             <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
@@ -283,7 +354,7 @@ export function OrgProviderDetail() {
             </div>
           ))}
         </div>
-      )}
+      ) : null}
 
       {!activeMetric && <div className="mb-10" />}
 

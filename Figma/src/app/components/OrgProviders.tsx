@@ -5,63 +5,88 @@ import { Search, X, ArrowLeft } from "lucide-react";
 import { listPassports } from "../api";
 import { toast } from "sonner";
 
-const providers = [
-  { id: "1", name: "Dr. Sarah Chen", type: "MD" as const, specialty: "Internal Medicine", facility: "Main Campus", pct: 93, blockers: 0, exp: 1, stage: "Active", status: "verified" as const },
-  { id: "2", name: "Dr. James Wilson", type: "MD" as const, specialty: "Cardiology", facility: "Main Campus", pct: 78, blockers: 1, exp: 0, stage: "In review", status: "pending" as const },
-  { id: "3", name: "Dr. Maria Santos", type: "MD" as const, specialty: "Pediatrics", facility: "East Clinic", pct: 85, blockers: 0, exp: 1, stage: "Active", status: "verified" as const },
-  { id: "4", name: "Dr. Robert Kim", type: "MD" as const, specialty: "Orthopedics", facility: "Main Campus", pct: 60, blockers: 2, exp: 1, stage: "Blocked", status: "error" as const },
-  { id: "5", name: "Lisa Park", type: "RN" as const, specialty: "Nurse Practitioner", facility: "West Clinic", pct: 72, blockers: 1, exp: 0, stage: "Verify", status: "pending" as const },
-  { id: "6", name: "Dr. Ahmed Hassan", type: "MD" as const, specialty: "Neurology", facility: "Main Campus", pct: 95, blockers: 0, exp: 0, stage: "Active", status: "verified" as const },
-  { id: "7", name: "Emily Taylor", type: "RN" as const, specialty: "Registered Nurse", facility: "East Clinic", pct: 100, blockers: 0, exp: 0, stage: "Active", status: "verified" as const },
-  { id: "8", name: "Karen Mitchell", type: "RN" as const, specialty: "Licensed Practical Nurse", facility: "West Clinic", pct: 88, blockers: 0, exp: 2, stage: "Active", status: "warning" as const },
-];
+export type ProviderRow = {
+  id: string;
+  name: string;
+  type: "MD" | "RN";
+  specialty: string;
+  facility: string;
+  pct: number;
+  blockers: number;
+  exp: number;
+  stage: string;
+  status: "verified" | "pending" | "error" | "warning";
+};
 
-type ProviderRow = typeof providers[number];
+function mapPassportToRow(p: any, idx: number): ProviderRow {
+  const name = p?.identity?.legal_name || p?.identity?.full_name || p?.clinician_id || `Clinician ${idx + 1}`;
+  const specialty = p?.board_certifications?.[0]?.specialty || p?.enrollment?.specialties?.[0] || "Clinician";
+  const facility = p?.enrollment?.practice_locations?.[0]?.name || "Main Campus";
+  const licenses = p?.licenses?.state_licenses || [];
+  const boards = p?.board_certifications || [];
+  const verifiedCount = licenses.filter((l: any) => l.verified).length;
+  const totalCreds = licenses.length + boards.length;
+  const verifiedCreds = verifiedCount + boards.filter((b: any) => b.verified).length;
+  const pct = totalCreds > 0 ? Math.round((verifiedCreds / totalCreds) * 100) : 100;
+  const expiringSoon = licenses.filter((l: any) => {
+    if (!l.expiration_date) return false;
+    const exp = new Date(l.expiration_date);
+    const diff = (exp.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+    return diff > 0 && diff < 90;
+  }).length;
+  const blockers = totalCreds - verifiedCreds;
+  const nearExpiryBoard = boards.some((b: any) => {
+    if (!b.expiration_date) return false;
+    const exp = new Date(b.expiration_date);
+    const diff = (exp.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+    return diff > 0 && diff < 90;
+  });
+  const exp = expiringSoon + (nearExpiryBoard ? 1 : 0);
+  const des = (p?.identity?.designation || "MD") as string;
+  const type: "MD" | "RN" = des === "RN" || des === "LPN" ? "RN" : "MD";
+  let status: ProviderRow["status"] = "verified";
+  if (pct < 50) status = "error";
+  else if (pct < 100 || exp > 0) status = exp > 0 ? "warning" : "pending";
+  return {
+    id: p?.clinician_id || `${idx + 1}`,
+    name,
+    type,
+    specialty,
+    facility,
+    pct,
+    blockers,
+    exp,
+    stage: pct === 100 ? "Active" : pct >= 50 ? "In review" : "Blocked",
+    status,
+  };
+}
 
 export function OrgProviders() {
   const [q, setQ] = useState("");
-  const [rows, setRows] = useState<ProviderRow[]>(providers);
+  const [rows, setRows] = useState<ProviderRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
     let ignore = false;
+    setLoading(true);
     listPassports()
       .then((data: any[]) => {
         if (ignore) return;
-        if (!Array.isArray(data) || data.length === 0) return;
-        const mapped: ProviderRow[] = data.map((p, idx) => {
-          const name = p?.identity?.legal_name || p?.identity?.full_name || p?.clinician_id || `Clinician ${idx + 1}`;
-          const specialty = p?.board_certifications?.[0]?.specialty || p?.enrollment?.specialties?.[0] || "Clinician";
-          const facility = p?.enrollment?.practice_locations?.[0]?.name || "Main Campus";
-          const licenses = p?.licenses?.state_licenses || [];
-          const verifiedCount = licenses.filter((l: any) => l.verified).length;
-          const totalCreds = licenses.length + (p?.board_certifications?.length || 0);
-          const verifiedCreds = verifiedCount + (p?.board_certifications?.filter((b: any) => b.verified).length || 0);
-          const pct = totalCreds > 0 ? Math.round((verifiedCreds / totalCreds) * 100) : 100;
-          const expiring = licenses.filter((l: any) => {
-            if (!l.expiration_date) return false;
-            const exp = new Date(l.expiration_date);
-            const now = new Date();
-            const diff = (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-            return diff > 0 && diff < 90;
-          }).length;
-          return {
-            id: p?.clinician_id || `${idx + 1}`,
-            name,
-            type: (p?.identity?.designation || "MD") as "MD" | "RN",
-            specialty,
-            facility,
-            pct,
-            blockers: totalCreds - verifiedCreds,
-            exp: expiring,
-            stage: pct === 100 ? "Active" : pct >= 50 ? "In review" : "Blocked",
-            status: (pct === 100 ? "verified" : pct >= 50 ? "pending" : "error") as "verified" | "pending" | "error",
-          };
-        });
-        setRows([...mapped, ...providers.slice(mapped.length)]);
+        if (!Array.isArray(data)) {
+          setRows([]);
+          return;
+        }
+        setRows(data.map((p, idx) => mapPassportToRow(p, idx)));
       })
-      .catch(() => {
-        /* keep fallback mock data */
+      .catch((err: any) => {
+        if (!ignore) {
+          setRows([]);
+          toast.error("Could not load providers", { description: String(err?.message || err) });
+        }
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
       });
     return () => {
       ignore = true;
@@ -82,7 +107,9 @@ export function OrgProviders() {
       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 mb-8">
         <div>
           <h1 className="text-[22px] text-foreground tracking-[-0.02em]">Providers</h1>
-          <p className="text-[15px] text-muted-foreground mt-1">{rows.length} in roster</p>
+          <p className="text-[15px] text-muted-foreground mt-1">
+            {loading ? "Loading roster…" : `${rows.length} in roster`}
+          </p>
         </div>
         <button
           onClick={() => setAddOpen(true)}
@@ -117,6 +144,13 @@ export function OrgProviders() {
             </tr>
           </thead>
           <tbody>
+            {!loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-12 px-5 text-center text-[15px] text-muted-foreground">
+                  No passports in the database yet. Start the API and POST <code className="text-[13px] text-foreground/80">/api/demo/seed</code> to load sample data.
+                </td>
+              </tr>
+            )}
             {filtered.map((p) => (
               <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-secondary/30 transition-colors">
                 <td className="py-4 px-5">
